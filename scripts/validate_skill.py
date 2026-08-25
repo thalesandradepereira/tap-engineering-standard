@@ -12,6 +12,7 @@ from pathlib import Path
 SKILL_NAME = "tap-engineering-standard"
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 CSS_URL_PATTERN = re.compile(r"url\s*\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
+CSS_IMAGE_SET_PATTERN = re.compile(r"(?:-webkit-)?image-set\s*\(", re.IGNORECASE)
 CSS_ESCAPE_PATTERN = re.compile(
     r"\\(?:([0-9a-fA-F]{1,6})(?:\r\n|[ \t\r\n\f])?|([^\r\n\f]))"
 )
@@ -94,7 +95,14 @@ def validate_svg(path: Path) -> None:
             raise ValueError(f"Embedded SVG scripts are not allowed: {path}")
         if tag == "foreignobject":
             raise ValueError(f"Embedded HTML in SVG assets is not allowed: {path}")
-        if tag in {"animate", "animatemotion", "animatetransform", "set"}:
+        if tag in {
+            "animate",
+            "animatecolor",
+            "animatemotion",
+            "animatetransform",
+            "discard",
+            "set",
+        }:
             raise ValueError(f"SVG animation elements are not allowed: {path}")
 
         if tag == "style":
@@ -104,6 +112,8 @@ def validate_svg(path: Path) -> None:
             normalized_attribute = attribute.rsplit("}", maxsplit=1)[-1].lower()
             if normalized_attribute.startswith("on"):
                 raise ValueError(f"SVG event handlers are not allowed: {path}")
+            if normalized_attribute == "base":
+                raise ValueError(f"SVG base URL overrides are not allowed: {path}")
             if normalized_attribute in {"href", "src"}:
                 if not value.startswith("#"):
                     raise ValueError(f"External SVG references are not allowed: {path}")
@@ -121,7 +131,8 @@ def validate_svg_css(value: str, path: Path) -> None:
             return "\uFFFD"
         return chr(codepoint)
 
-    normalized = CSS_ESCAPE_PATTERN.sub(decode_escape, value)
+    normalized = re.sub(r"\\(?:\r\n|[\n\r\f])", "", value)
+    normalized = CSS_ESCAPE_PATTERN.sub(decode_escape, normalized)
     normalized = re.sub(r"/\*.*?\*/", "", normalized, flags=re.DOTALL)
 
     if re.search(r"@import\b", normalized, re.IGNORECASE):
@@ -131,12 +142,184 @@ def validate_svg_css(value: str, path: Path) -> None:
         if not match.group(2).strip().startswith("#"):
             raise ValueError(f"External SVG CSS references are not allowed: {path}")
 
+    for image_set in CSS_IMAGE_SET_PATTERN.finditer(normalized):
+        depth = 1
+        quote: str | None = None
+        quote_depth = 0
+        quote_start = 0
+        for index in range(image_set.end(), len(normalized)):
+            character = normalized[index]
+            if quote is not None:
+                if character == quote:
+                    if quote_depth == 1:
+                        candidate = normalized[quote_start:index].strip()
+                        if not candidate.startswith("#"):
+                            raise ValueError(
+                                f"External SVG CSS references are not allowed: {path}"
+                            )
+                    quote = None
+                continue
+            if character in {"'", '"'}:
+                quote = character
+                quote_depth = depth
+                quote_start = index + 1
+            elif character == "(":
+                depth += 1
+            elif character == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+
+
+def strip_yaml_comment(line: str) -> str:
+    """Remove YAML comments while preserving quoted scalar contents."""
+    quote: str | None = None
+    escaped = False
+    for index, character in enumerate(line):
+        if escaped:
+            escaped = False
+            continue
+        if quote == '"' and character == "\\":
+            escaped = True
+            continue
+        if quote is not None:
+            if character == quote:
+                quote = None
+            continue
+        if character in {"'", '"'}:
+            quote = character
+        elif character == "#" and (index == 0 or line[index - 1].isspace()):
+            return line[:index].rstrip()
+    return line.rstrip()
+
+
+def validate_agent_metadata(metadata_text: str) -> list[str]:
+    """Validate active interface and policy keys without trusting YAML comments."""
+    errors: list[str] = []
+    sections: dict[str, dict[str, str]] = {}
+    section: str | None = None
+
+    for raw_line in metadata_text.splitlines():
+        line = strip_yaml_comment(raw_line)
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        key, separator, value = line.strip().partition(":")
+        if not separator:
+            continue
+        if indent == 0:
+            section = key
+            if section in sections:
+                errors.append(f"Duplicate agent metadata section: {section}")
+            sections.setdefault(section, {})
+        elif indent == 2 and section is not None:
+            if key in sections[section]:
+                errors.append(f"Duplicate agent metadata field: {section}.{key}")
+            sections[section][key] = value.strip()
+
+    interface = sections.get("interface", {})
+    policy = sections.get("policy", {})
+    if interface.get("display_name") != "TAP Engineering Standard":
+        errors.append("Agent metadata does not contain the expected display name")
+    if policy.get("allow_implicit_invocation") != "true":
+        errors.append("Agent metadata must preserve implicit invocation")
+    if "$tap-engineering-standard" not in interface.get("default_prompt", ""):
+        errors.append("Agent default prompt must reference the canonical skill name")
+    for icon_key in ("icon_small", "icon_large"):
+        if interface.get(icon_key) != "assets/icon.svg":
+            errors.append(f"Agent metadata must reference the local skill icon: {icon_key}")
+
+    return errors
+
+
+def validate_workflow_permissions(lines: list[str]) -> list[str]:
+    """Reject writable, aliased, or unsupported permission mappings."""
+    errors: list[str] = []
+    permission_key = re.compile(
+        r"^(?P<indent>[ \t]*)(?:permissions|['\"]permissions['\"])[ \t]*:[ \t]*(?P<value>.*)$"
+    )
+    scope_key = re.compile(
+        r"^[ \t]+(?:['\"]?)(?P<name>[a-z][a-z-]*)(?:['\"]?)[ \t]*:[ \t]*(?P<value>.*)$"
+    )
+
+    for index, line in enumerate(lines):
+        match = permission_key.match(line)
+        if match is None:
+            continue
+
+        if match.group("value"):
+            errors.append("GitHub Actions workflow uses unsupported permissions syntax")
+            if re.search(r"(?:^|[\s,:{])['\"]?write(?:-all)?['\"]?(?:$|[\s,}])", line):
+                errors.append("GitHub Actions workflow must not request write permissions")
+            continue
+
+        indent = len(match.group("indent"))
+        seen_scopes: set[str] = set()
+        for candidate in lines[index + 1 :]:
+            if not candidate.strip():
+                continue
+            candidate_indent = len(candidate) - len(candidate.lstrip())
+            if candidate_indent <= indent:
+                break
+            scope_match = scope_key.match(candidate)
+            if scope_match is None:
+                errors.append("GitHub Actions workflow uses unsupported permissions syntax")
+                continue
+            scope = scope_match.group("name")
+            raw_access = scope_match.group("value")
+            access = raw_access.strip("'\"")
+            if scope in seen_scopes:
+                errors.append("GitHub Actions workflow contains duplicate permissions")
+            seen_scopes.add(scope)
+            if access in {"write", "write-all"}:
+                errors.append("GitHub Actions workflow must not request write permissions")
+            elif access not in {"read", "none"}:
+                errors.append("GitHub Actions workflow uses unsupported permissions syntax")
+
+    return errors
+
+
+def checkout_disables_credentials(lines: list[str], index: int, indent: int) -> bool:
+    """Require exactly one false setting inside the checkout action's with block."""
+    with_blocks: list[tuple[int, int]] = []
+    for position in range(index + 1, len(lines)):
+        candidate = lines[position]
+        if not candidate.strip():
+            continue
+        candidate_indent = len(candidate) - len(candidate.lstrip())
+        if candidate_indent < indent:
+            break
+        if candidate_indent == indent and re.fullmatch(r"[ \t]*with:[ \t]*", candidate):
+            with_blocks.append((position, candidate_indent))
+
+    if len(with_blocks) != 1:
+        return False
+
+    with_position, with_indent = with_blocks[0]
+    settings: list[str] = []
+    child_indent: int | None = None
+    for candidate in lines[with_position + 1 :]:
+        if not candidate.strip():
+            continue
+        candidate_indent = len(candidate) - len(candidate.lstrip())
+        if candidate_indent <= with_indent:
+            break
+        if child_indent is None:
+            child_indent = candidate_indent
+        if candidate_indent != child_indent:
+            continue
+        match = re.fullmatch(r"[ \t]*persist-credentials:[ \t]*(.*)", candidate)
+        if match is not None:
+            settings.append(match.group(1).strip())
+
+    return settings == ["false"]
+
 
 def validate_workflow(workflow_text: str) -> list[str]:
     """Validate the small, intentionally dependency-free GitHub Actions workflow."""
     errors: list[str] = []
-    lines = workflow_text.splitlines()
-    active_lines = [line for line in lines if not line.lstrip().startswith("#")]
+    lines = [strip_yaml_comment(line) for line in workflow_text.splitlines()]
+    active_lines = [line for line in lines if line.strip()]
     active_text = "\n".join(active_lines)
 
     permissions_match = re.search(
@@ -151,20 +334,14 @@ def validate_workflow(workflow_text: str) -> list[str]:
     ):
         errors.append("GitHub Actions workflow must request read-only contents permission")
 
-    if re.search(
-        r"^[ \t]*(?:permissions:[ \t]+write-all|[a-z][a-z-]*:[ \t]+write)"
-        r"(?:[ \t]+#.*)?$",
-        active_text,
-        re.MULTILINE,
-    ):
-        errors.append("GitHub Actions workflow must not request write permissions")
+    errors.extend(validate_workflow_permissions(lines))
 
     if re.search(r"(?<![A-Za-z0-9_-])pull_request_target(?![A-Za-z0-9_-])", active_text):
         errors.append("GitHub Actions workflow must not use pull_request_target")
 
     checkout_found = False
     for index, line in enumerate(lines):
-        if line.lstrip().startswith("#"):
+        if not line.strip():
             continue
         for action_match in ACTION_USE_PATTERN.finditer(line):
             action = action_match.group("action").strip("\"'")
@@ -179,19 +356,7 @@ def validate_workflow(workflow_text: str) -> list[str]:
 
             checkout_found = True
             indent = len(line) - len(line.lstrip())
-            checkout_lines: list[str] = []
-            for candidate in lines[index + 1 :]:
-                if not candidate.strip() or candidate.lstrip().startswith("#"):
-                    continue
-                candidate_indent = len(candidate) - len(candidate.lstrip())
-                if candidate_indent < indent:
-                    break
-                checkout_lines.append(candidate)
-
-            if not any(
-                re.match(r"^[ \t]+persist-credentials:[ \t]+false(?:[ \t]+#.*)?$", candidate)
-                for candidate in checkout_lines
-            ):
+            if not checkout_disables_credentials(lines, index, indent):
                 errors.append("Checkout action must disable credential persistence")
 
     if not checkout_found:
@@ -204,17 +369,49 @@ def validate_repository(root: Path) -> list[str]:
     """Return actionable errors; an empty list indicates a valid repository."""
     errors: list[str] = []
     skill_directory = root / "skills" / SKILL_NAME
+    checked_files: dict[Path, bool] = {}
+
+    def validate_file_path(path: Path, missing_error: str) -> bool:
+        if path in checked_files:
+            return checked_files[path]
+        if not path.is_file():
+            errors.append(missing_error)
+            checked_files[path] = False
+            return False
+
+        relative_path = path.relative_to(root)
+        candidate = root
+        for component in relative_path.parts:
+            candidate /= component
+            if candidate.is_symlink():
+                errors.append(
+                    f"Symbolic links and external repository files are not allowed: {relative_path}"
+                )
+                checked_files[path] = False
+                return False
+
+        if not path.resolve().is_relative_to(root.resolve()):
+            errors.append(
+                f"Symbolic links and external repository files are not allowed: {relative_path}"
+            )
+            checked_files[path] = False
+            return False
+
+        checked_files[path] = True
+        return True
 
     for relative_path in REQUIRED_DOCUMENTS:
-        if not (root / relative_path).is_file():
-            errors.append(f"Missing required repository document: {relative_path}")
+        validate_file_path(
+            root / relative_path, f"Missing required repository document: {relative_path}"
+        )
 
     for relative_path in REQUIRED_SKILL_FILES:
-        if not (skill_directory / relative_path).is_file():
-            errors.append(f"Missing required skill file: {relative_path}")
+        validate_file_path(
+            skill_directory / relative_path, f"Missing required skill file: {relative_path}"
+        )
 
     skill_path = skill_directory / "SKILL.md"
-    if skill_path.is_file():
+    if checked_files.get(skill_path):
         try:
             skill_text = skill_path.read_text(encoding="utf-8")
             metadata = parse_frontmatter(skill_text)
@@ -226,27 +423,28 @@ def validate_repository(root: Path) -> list[str]:
             if len(metadata["description"]) < 80:
                 errors.append("Skill description must explain both its purpose and triggers")
             for reference in re.findall(r"`(references/[a-z0-9-]+\.md)`", skill_text):
-                if not (skill_directory / reference).is_file():
-                    errors.append(f"Skill references a missing specialist playbook: {reference}")
+                validate_file_path(
+                    skill_directory / reference,
+                    f"Skill references a missing specialist playbook: {reference}",
+                )
         except (OSError, UnicodeError, ValueError) as error:
             errors.append(f"Invalid skill frontmatter: {error}")
 
     metadata_path = skill_directory / "agents" / "openai.yaml"
-    if metadata_path.is_file():
+    if checked_files.get(metadata_path):
         metadata_text = metadata_path.read_text(encoding="utf-8")
-        if "display_name: TAP Engineering Standard" not in metadata_text:
-            errors.append("Agent metadata does not contain the expected display name")
-        if "allow_implicit_invocation: true" not in metadata_text:
-            errors.append("Agent metadata must preserve implicit invocation")
-        if "$tap-engineering-standard" not in metadata_text:
-            errors.append("Agent default prompt must reference the canonical skill name")
+        errors.extend(validate_agent_metadata(metadata_text))
 
-    for svg_path in (
+    required_svg_paths = (
         root / "assets" / "tap-engineering-banner.svg",
         skill_directory / "assets" / "icon.svg",
-    ):
-        if not svg_path.is_file():
-            errors.append(f"Missing required SVG asset: {svg_path.relative_to(root)}")
+    )
+    svg_paths = set(required_svg_paths)
+    svg_paths.update(path for path in root.rglob("*") if path.suffix.lower() == ".svg")
+    for svg_path in sorted(svg_paths):
+        if not validate_file_path(
+            svg_path, f"Missing required SVG asset: {svg_path.relative_to(root)}"
+        ):
             continue
         try:
             validate_svg(svg_path)
@@ -254,11 +452,15 @@ def validate_repository(root: Path) -> list[str]:
             errors.append(f"Invalid SVG asset: {error}")
 
     workflow_path = root / ".github" / "workflows" / "validate-skill.yml"
-    if not workflow_path.is_file():
-        errors.append("Missing GitHub Actions validation workflow")
-    else:
-        workflow_text = workflow_path.read_text(encoding="utf-8")
-        errors.extend(validate_workflow(workflow_text))
+    workflow_paths = {workflow_path}
+    if workflow_path.parent.is_dir():
+        workflow_paths.update(
+            path for path in workflow_path.parent.iterdir() if path.suffix.lower() in {".yml", ".yaml"}
+        )
+    for candidate in sorted(workflow_paths):
+        if validate_file_path(candidate, "Missing GitHub Actions validation workflow"):
+            workflow_text = candidate.read_text(encoding="utf-8")
+            errors.extend(validate_workflow(workflow_text))
 
     return errors
 
