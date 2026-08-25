@@ -1,0 +1,13 @@
+interface:
+  display_name: TAP Engineering Standard
+  short_description: Engenharia enxuta, segura e verificável
+  default_prompt: Use $tap-engineering-standard para executar esta tarefa técnica com análise, simplicidade, segurança e QA.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+    - chatgpt
+    - codex
+    - api
+    - atlas
+  allow_implicit_invocation: true

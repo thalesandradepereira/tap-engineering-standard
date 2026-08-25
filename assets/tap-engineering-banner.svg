@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="420" viewBox="0 0 1600 420" role="img" aria-labelledby="title desc">
+  <title id="title">TAP Engineering Standard</title>
+  <desc id="desc">Dark navy engineering dashboard with violet and teal highlights and the words Evidence. Security. Precision.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#09111f"/>
+      <stop offset="1" stop-color="#121d37"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#19d3b4"/>
+      <stop offset="0.54" stop-color="#5468ff"/>
+      <stop offset="1" stop-color="#aa74ff"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#eff6ff" stroke-opacity="0.06" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="420" rx="24" fill="url(#background)"/>
+  <rect width="1600" height="420" rx="24" fill="url(#grid)"/>
+  <path d="M0 416H1600" stroke="url(#accent)" stroke-width="8"/>
+  <circle cx="1290" cy="116" r="168" fill="#5468ff" fill-opacity="0.07"/>
+  <circle cx="1450" cy="326" r="122" fill="#19d3b4" fill-opacity="0.06"/>
+  <rect x="103" y="76" width="200" height="34" rx="17" fill="#19d3b4" fill-opacity="0.13" stroke="#19d3b4" stroke-opacity="0.45"/>
+  <circle cx="122" cy="93" r="4" fill="#19d3b4"/>
+  <text x="138" y="99" fill="#8bf0dc" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="1.1">AGENT SKILL</text>
+  <text x="100" y="201" fill="#f8fafc" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="700" letter-spacing="-1.8">TAP Engineering Standard</text>
+  <text x="104" y="260" fill="#aab8cf" font-family="Arial, Helvetica, sans-serif" font-size="26">Evidence. Security. Precision.</text>
+  <text x="104" y="337" fill="#8090ab" font-family="Arial, Helvetica, sans-serif" font-size="18" letter-spacing="2.2">OPEN SOURCE  /  AI-ASSISTED SOFTWARE ENGINEERING  /  TAP CREATIVE LAB</text>
+  <g transform="translate(1242 155)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="7">
+    <rect x="0" y="0" width="142" height="112" rx="20" stroke="#53647e"/>
+    <path d="M46 38L27 56L46 74" stroke="#19d3b4"/>
+    <path d="M95 38L114 56L95 74" stroke="#a88bff"/>
+    <path d="M79 32L63 81" stroke="#c8d2e2"/>
+  </g>
+</svg>
