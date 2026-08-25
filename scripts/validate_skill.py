@@ -98,6 +98,30 @@ def parse_frontmatter(content: str) -> dict[str, str]:
     return metadata
 
 
+def mask_inline_code_spans(line: str) -> str:
+    """Mask complete backtick spans so literal Markdown syntax stays non-structural."""
+    masked: list[str] = []
+    position = 0
+    while position < len(line):
+        if line[position] != "`":
+            masked.append(line[position])
+            position += 1
+            continue
+
+        end = position + 1
+        while end < len(line) and line[end] == "`":
+            end += 1
+        delimiter = line[position:end]
+        closing = line.find(delimiter, end)
+        if closing == -1:
+            masked.append(delimiter)
+            position = end
+            continue
+        masked.append(" " * (closing + len(delimiter) - position))
+        position = closing + len(delimiter)
+    return "".join(masked)
+
+
 def visible_markdown_lines(lines: list[str]) -> list[str]:
     """Exclude real comments and fenced examples without confusing their contexts."""
     fence_pattern = re.compile(
@@ -107,6 +131,11 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
     visible_lines: list[str] = []
     fence: tuple[str, int] | None = None
     comment = False
+    opaque_html_tag: str | None = None
+    opaque_html_open = re.compile(
+        r"<(?P<tag>pre|code|script|style|textarea)(?:[ \t][^<>]*)?>",
+        re.IGNORECASE,
+    )
 
     for raw_line in lines:
         if fence is not None:
@@ -127,6 +156,7 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
             fence = (marker[0], len(marker))
             continue
 
+        raw_line = mask_inline_code_spans(raw_line)
         fragments: list[str] = []
         position = 0
         while position < len(raw_line):
@@ -139,13 +169,35 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
                 position = closing_position + 3
                 continue
 
+            if opaque_html_tag is not None:
+                closing_tag = re.search(
+                    rf"</{re.escape(opaque_html_tag)}[ \t]*>",
+                    raw_line[position:],
+                    re.IGNORECASE,
+                )
+                if closing_tag is None:
+                    position = len(raw_line)
+                    break
+                opaque_html_tag = None
+                position += closing_tag.end()
+                continue
+
             opening_position = raw_line.find("<!--", position)
-            if opening_position == -1:
+            html_opening = opaque_html_open.search(raw_line, position)
+            html_position = html_opening.start() if html_opening is not None else -1
+            candidates = [candidate for candidate in (opening_position, html_position) if candidate >= 0]
+            if not candidates:
                 fragments.append(raw_line[position:])
                 break
-            fragments.append(raw_line[position:opening_position])
-            position = opening_position + 4
-            comment = True
+            next_position = min(candidates)
+            fragments.append(raw_line[position:next_position])
+            if opening_position == next_position:
+                position = opening_position + 4
+                comment = True
+            else:
+                assert html_opening is not None
+                opaque_html_tag = html_opening.group("tag").lower()
+                position = html_opening.end()
 
         line = "".join(fragments)
         opening = fence_pattern.match(line) if not comment else None
@@ -153,7 +205,7 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
             marker = opening.group("fence")
             fence = (marker[0], len(marker))
             continue
-        if line:
+        if line and not re.match(r"^(?: {4}|\t)", line):
             visible_lines.append(line)
 
     return visible_lines
@@ -178,7 +230,12 @@ def validate_skill_body(content: str) -> list[str]:
                 re.MULTILINE,
             ) is not None
         else:
-            found = marker in visible_body
+            found = re.search(
+                rf"^[ \t]{{0,3}}(?:(?:[-+*]|\d{{1,9}}[.)])[ \t]+)?"
+                rf"{re.escape(marker)}(?=$|[ \t,.;:])",
+                visible_body,
+                re.MULTILINE,
+            ) is not None
         if not found:
             errors.append(f"SKILL.md is missing required safety guidance: {marker}")
     return errors

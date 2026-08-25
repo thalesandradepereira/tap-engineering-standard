@@ -90,11 +90,40 @@ class SkillBodyValidationTests(unittest.TestCase):
         errors = validator.validate_skill_body(content)
         self.assertTrue(any("required safety guidance" in error for error in errors))
 
+    def test_rejects_guidance_inside_indented_code(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        hidden_guidance = "\n".join(
+            "    " + marker for marker in self.markers if not marker.startswith("#")
+        )
+        errors = validator.validate_skill_body(headings + "\n\n" + hidden_guidance + "\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_guidance_inside_inline_code(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        hidden_guidance = "\n".join(
+            "`" + marker + "`" for marker in self.markers if not marker.startswith("#")
+        )
+        errors = validator.validate_skill_body(headings + "\n" + hidden_guidance + "\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_html_preformatted_code(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body("<pre>\n" + hidden_markers + "\n</pre>\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
     def test_accepts_unclosed_html_comment_inside_fenced_example(self) -> None:
         content = self.skill_text.replace(
             "# TAP Engineering Standard\n",
             "```html\n<!-- illustrative unclosed comment\n```\n\n"
             "# TAP Engineering Standard\n",
+            1,
+        )
+        self.assertEqual(validator.validate_skill_body(content), [])
+
+    def test_accepts_html_comment_delimiter_inside_inline_code(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "An HTML comment opens with `<!--`.\n\n# TAP Engineering Standard\n",
             1,
         )
         self.assertEqual(validator.validate_skill_body(content), [])
