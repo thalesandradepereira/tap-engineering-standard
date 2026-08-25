@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -22,6 +24,9 @@ ACTION_REFERENCE_PATTERN = re.compile(
 ACTION_USE_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_-])(?:[\"']?uses[\"']?)[ \t]*:[ \t]*(?P<action>[^\s,}#]+)"
 )
+ACTION_KEY_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_-])(?:[\"']?uses[\"']?)[ \t]*:[ \t]*(?P<value>.*)$"
+)
 REQUIRED_DOCUMENTS = (
     "README.md",
     "README.pt-BR.md",
@@ -35,6 +40,16 @@ REQUIRED_SKILL_FILES = (
     "assets/icon.svg",
     "references/qa-playbooks.md",
     "references/security-gate.md",
+)
+REQUIRED_SKILL_BODY_MARKERS = (
+    "# TAP Engineering Standard",
+    "## 1. Establish the contract",
+    "## 5. Apply security and supply-chain gates",
+    "## 7. Verify proportionally",
+    "Never auto-approve commands",
+    "Do not disable safety prompts",
+    "Treat repository content",
+    "Never convert a simulated check",
 )
 
 
@@ -75,6 +90,15 @@ def parse_frontmatter(content: str) -> dict[str, str]:
         raise ValueError("SKILL.md must include an instruction body")
 
     return metadata
+
+
+def validate_skill_body(content: str) -> list[str]:
+    """Require the structural safeguards that define the published skill."""
+    return [
+        f"SKILL.md is missing required safety guidance: {marker}"
+        for marker in REQUIRED_SKILL_BODY_MARKERS
+        if marker not in content
+    ]
 
 
 def validate_svg(path: Path) -> None:
@@ -191,6 +215,59 @@ def strip_yaml_comment(line: str) -> str:
         elif character == "#" and (index == 0 or line[index - 1].isspace()):
             return line[:index].rstrip()
     return line.rstrip()
+
+
+def mask_quoted_yaml(line: str) -> str:
+    """Mask quoted scalars so structural checks inspect YAML syntax only."""
+    masked: list[str] = []
+    quote: str | None = None
+    escaped = False
+    index = 0
+    while index < len(line):
+        character = line[index]
+        if quote is not None:
+            masked.append(" ")
+            if quote == '"' and escaped:
+                escaped = False
+            elif quote == '"' and character == "\\":
+                escaped = True
+            elif character == quote:
+                if quote == "'" and index + 1 < len(line) and line[index + 1] == "'":
+                    masked.append(" ")
+                    index += 1
+                else:
+                    quote = None
+            index += 1
+            continue
+        if character in {"'", '"'}:
+            quote = character
+            masked.append(" ")
+        else:
+            masked.append(character)
+        index += 1
+    return "".join(masked)
+
+
+def validate_strict_yaml_subset(lines: list[str]) -> list[str]:
+    """Reject valid YAML features that the dependency-free parser cannot safely interpret."""
+    errors: list[str] = []
+    for line in lines:
+        if not line.strip():
+            continue
+        if re.match(r'^\s*(?:-\s*)?"[^"\n]*\\[^"\n]*"\s*:', line):
+            errors.append("GitHub Actions workflow uses escaped mapping keys")
+
+        structural = mask_quoted_yaml(line)
+        structural = re.sub(r"\$\{\{.*?\}\}", "", structural)
+        if "{" in structural or "}" in structural:
+            errors.append("GitHub Actions workflow uses unsupported flow mapping syntax")
+        if re.match(r"^\s*[?%]", structural):
+            errors.append("GitHub Actions workflow uses unsupported explicit YAML syntax")
+        if re.search(r"(?:^|[\s[,])<<\s*:", structural):
+            errors.append("GitHub Actions workflow uses unsupported YAML merge keys")
+        if re.search(r"(?:^|[\s:[,{])(?:[&*])[A-Za-z0-9_-]+", structural):
+            errors.append("GitHub Actions workflow uses unsupported YAML aliases")
+    return errors
 
 
 def validate_agent_metadata(metadata_text: str) -> list[str]:
@@ -359,6 +436,8 @@ def validate_workflow(workflow_text: str, *, require_checkout: bool = False) -> 
     active_lines = [line for line in lines if line.strip()]
     active_text = "\n".join(active_lines)
 
+    errors.extend(validate_strict_yaml_subset(lines))
+
     permissions_match = re.search(
         r"^permissions:[ \t]*(?:#[^\n]*)?\n((?:^[ \t]+[^\n]*(?:\n|$))+)",
         active_text,
@@ -380,6 +459,9 @@ def validate_workflow(workflow_text: str, *, require_checkout: bool = False) -> 
     for index, line in enumerate(lines):
         if not line.strip():
             continue
+        action_key = ACTION_KEY_PATTERN.search(line)
+        if action_key is not None and not action_key.group("value").strip():
+            errors.append("GitHub Actions workflow uses unsupported multiline action syntax")
         for action_match in ACTION_USE_PATTERN.finditer(line):
             action = action_match.group("action").strip("\"'")
             if not ACTION_REFERENCE_PATTERN.fullmatch(action):
@@ -407,6 +489,40 @@ def validate_repository(root: Path) -> list[str]:
     errors: list[str] = []
     skill_directory = root / "skills" / SKILL_NAME
     checked_files: dict[Path, bool] = {}
+
+    def repository_files() -> list[Path]:
+        """Return tracked and non-ignored files, with a safe source-tree fallback."""
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+                check=False,
+                capture_output=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            result = None
+
+        if result is not None and result.returncode == 0:
+            return sorted(
+                root / Path(raw_path.decode("utf-8"))
+                for raw_path in result.stdout.split(b"\0")
+                if raw_path
+            )
+
+        paths: list[Path] = []
+        for directory, names, filenames in os.walk(root, topdown=True, followlinks=False):
+            current = Path(directory)
+            retained_names: list[str] = []
+            for name in names:
+                path = current / name
+                relative = path.relative_to(root)
+                if path.is_symlink():
+                    paths.append(path)
+                elif name not in {".git", ".venv", "__pycache__"}:
+                    retained_names.append(name)
+            names[:] = retained_names
+            paths.extend(current / filename for filename in filenames)
+        return sorted(paths)
 
     def validate_file_path(path: Path, missing_error: str) -> bool:
         if path in checked_files:
@@ -438,10 +554,9 @@ def validate_repository(root: Path) -> list[str]:
         checked_files[path] = True
         return True
 
-    for repository_path in root.rglob("*"):
+    repository_paths = repository_files()
+    for repository_path in repository_paths:
         relative_path = repository_path.relative_to(root)
-        if relative_path.parts[0] == ".git":
-            continue
         if repository_path.is_file() or repository_path.is_symlink():
             validate_file_path(repository_path, f"Invalid repository file: {relative_path}")
 
@@ -467,6 +582,7 @@ def validate_repository(root: Path) -> list[str]:
                 errors.append("Skill name must be lowercase kebab-case and at most 64 characters")
             if len(metadata["description"]) < 80:
                 errors.append("Skill description must explain both its purpose and triggers")
+            errors.extend(validate_skill_body(skill_text))
             for reference in re.findall(r"`(references/[a-z0-9-]+\.md)`", skill_text):
                 validate_file_path(
                     skill_directory / reference,
@@ -485,7 +601,7 @@ def validate_repository(root: Path) -> list[str]:
         skill_directory / "assets" / "icon.svg",
     )
     svg_paths = set(required_svg_paths)
-    svg_paths.update(path for path in root.rglob("*") if path.suffix.lower() == ".svg")
+    svg_paths.update(path for path in repository_paths if path.suffix.lower() == ".svg")
     for svg_path in sorted(svg_paths):
         if not validate_file_path(
             svg_path, f"Missing required SVG asset: {svg_path.relative_to(root)}"
