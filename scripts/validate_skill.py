@@ -11,6 +11,10 @@ from pathlib import Path
 
 SKILL_NAME = "tap-engineering-standard"
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+CSS_URL_PATTERN = re.compile(r"url\s*\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
+ACTION_REFERENCE_PATTERN = re.compile(
+    r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*@[a-f0-9]{40}"
+)
 REQUIRED_DOCUMENTS = (
     "README.md",
     "README.pt-BR.md",
@@ -60,27 +64,121 @@ def parse_frontmatter(content: str) -> dict[str, str]:
     if missing:
         raise ValueError(f"Missing frontmatter fields: {', '.join(sorted(missing))}")
 
-    if closing_index + 1 >= len(lines):
+    if not any(line.strip() for line in lines[closing_index + 1 :]):
         raise ValueError("SKILL.md must include an instruction body")
 
     return metadata
 
 
 def validate_svg(path: Path) -> None:
-    """Require parseable SVG without embedded scripts or remote references."""
-    root = ET.parse(path).getroot()
+    """Require static SVG without active content, entities, or remote references."""
+    source = path.read_text(encoding="utf-8")
+    if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", source, re.IGNORECASE):
+        raise ValueError(f"SVG document types and entities are not allowed: {path}")
+
+    root = ET.fromstring(source)
     if root.tag.rsplit("}", maxsplit=1)[-1] != "svg":
         raise ValueError(f"Expected an SVG root element: {path}")
 
     for element in root.iter():
-        if element.tag.rsplit("}", maxsplit=1)[-1].lower() == "script":
+        tag = element.tag.rsplit("}", maxsplit=1)[-1].lower()
+        if tag == "script":
             raise ValueError(f"Embedded SVG scripts are not allowed: {path}")
+        if tag == "foreignobject":
+            raise ValueError(f"Embedded HTML in SVG assets is not allowed: {path}")
+        if tag in {"animate", "animatemotion", "animatetransform", "set"}:
+            raise ValueError(f"SVG animation elements are not allowed: {path}")
+
+        if tag == "style":
+            validate_svg_css("".join(element.itertext()), path)
+
         for attribute, value in element.attrib.items():
-            if attribute.lower().startswith("on"):
+            normalized_attribute = attribute.rsplit("}", maxsplit=1)[-1].lower()
+            if normalized_attribute.startswith("on"):
                 raise ValueError(f"SVG event handlers are not allowed: {path}")
-            if attribute.rsplit("}", maxsplit=1)[-1] in {"href", "src"}:
+            if normalized_attribute in {"href", "src"}:
                 if not value.startswith("#"):
                     raise ValueError(f"External SVG references are not allowed: {path}")
+            validate_svg_css(value, path)
+
+
+def validate_svg_css(value: str, path: Path) -> None:
+    """Allow CSS fragment references while blocking imports and remote URLs."""
+    if re.search(r"@import\b", value, re.IGNORECASE):
+        raise ValueError(f"External SVG CSS imports are not allowed: {path}")
+
+    for match in CSS_URL_PATTERN.finditer(value):
+        if not match.group(2).strip().startswith("#"):
+            raise ValueError(f"External SVG CSS references are not allowed: {path}")
+
+
+def validate_workflow(workflow_text: str) -> list[str]:
+    """Validate the small, intentionally dependency-free GitHub Actions workflow."""
+    errors: list[str] = []
+    lines = workflow_text.splitlines()
+    active_lines = [line for line in lines if not line.lstrip().startswith("#")]
+    active_text = "\n".join(active_lines)
+
+    permissions_match = re.search(
+        r"^permissions:[ \t]*(?:#[^\n]*)?\n((?:^[ \t]+[^\n]*(?:\n|$))+)",
+        active_text,
+        re.MULTILINE,
+    )
+    if not permissions_match or not re.search(
+        r"^[ \t]+contents:[ \t]+read(?:[ \t]+#.*)?$",
+        permissions_match.group(1),
+        re.MULTILINE,
+    ):
+        errors.append("GitHub Actions workflow must request read-only contents permission")
+
+    if re.search(
+        r"^[ \t]*(?:permissions:[ \t]+write-all|[a-z][a-z-]*:[ \t]+write)"
+        r"(?:[ \t]+#.*)?$",
+        active_text,
+        re.MULTILINE,
+    ):
+        errors.append("GitHub Actions workflow must not request write permissions")
+
+    if re.search(r"^[ \t]*[\"']?pull_request_target[\"']?[ \t]*:", active_text, re.MULTILINE):
+        errors.append("GitHub Actions workflow must not use pull_request_target")
+
+    checkout_found = False
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("#"):
+            continue
+        action_match = re.match(r"^(?P<indent>[ \t]*)(?:-[ \t]+)?uses:[ \t]+(?P<action>[^\s#]+)", line)
+        if not action_match:
+            continue
+
+        action = action_match.group("action")
+        if not ACTION_REFERENCE_PATTERN.fullmatch(action):
+            errors.append(f"GitHub Actions dependency must be pinned to a complete commit SHA: {action}")
+            continue
+
+        if not action.startswith("actions/checkout@"):
+            continue
+
+        checkout_found = True
+        indent = len(action_match.group("indent"))
+        checkout_lines: list[str] = []
+        for candidate in lines[index + 1 :]:
+            if not candidate.strip() or candidate.lstrip().startswith("#"):
+                continue
+            candidate_indent = len(candidate) - len(candidate.lstrip())
+            if candidate_indent < indent:
+                break
+            checkout_lines.append(candidate)
+
+        if not any(
+            re.match(r"^[ \t]+persist-credentials:[ \t]+false(?:[ \t]+#.*)?$", candidate)
+            for candidate in checkout_lines
+        ):
+            errors.append("Checkout action must disable credential persistence")
+
+    if not checkout_found:
+        errors.append("Checkout action must be pinned to a complete commit SHA")
+
+    return errors
 
 
 def validate_repository(root: Path) -> list[str]:
@@ -141,14 +239,7 @@ def validate_repository(root: Path) -> list[str]:
         errors.append("Missing GitHub Actions validation workflow")
     else:
         workflow_text = workflow_path.read_text(encoding="utf-8")
-        if "contents: read" not in workflow_text:
-            errors.append("GitHub Actions workflow must request read-only contents permission")
-        if "pull_request_target:" in workflow_text:
-            errors.append("GitHub Actions workflow must not use pull_request_target")
-        if not re.search(r"actions/checkout@[a-f0-9]{40}\b", workflow_text):
-            errors.append("Checkout action must be pinned to a complete commit SHA")
-        if "persist-credentials: false" not in workflow_text:
-            errors.append("Checkout action must disable credential persistence")
+        errors.extend(validate_workflow(workflow_text))
 
     return errors
 

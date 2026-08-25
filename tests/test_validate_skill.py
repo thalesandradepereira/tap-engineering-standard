@@ -38,6 +38,12 @@ class FrontmatterValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "instruction body"):
             validator.parse_frontmatter("---\nname: example\ndescription: example\n---")
 
+    def test_rejects_whitespace_only_instruction_body(self) -> None:
+        with self.assertRaisesRegex(ValueError, "instruction body"):
+            validator.parse_frontmatter(
+                "---\nname: example\ndescription: example\n---\n   \n\t\n"
+            )
+
     def test_rejects_duplicate_fields(self) -> None:
         with self.assertRaisesRegex(ValueError, "Duplicate"):
             validator.parse_frontmatter(
@@ -96,6 +102,102 @@ class SvgValidationTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "External"):
                 validator.validate_svg(path)
+
+    def test_rejects_css_remote_urls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<svg style="background: url(https://example.com/track)"/>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "CSS references"):
+                validator.validate_svg(path)
+
+    def test_rejects_css_imports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<svg><style>@import "https://example.com/styles.css";</style></svg>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "CSS imports"):
+                validator.validate_svg(path)
+
+    def test_rejects_foreign_objects(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text('<svg><foreignObject><iframe/></foreignObject></svg>', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Embedded HTML"):
+                validator.validate_svg(path)
+
+    def test_rejects_animation_elements(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<svg><set attributeName="href" to="javascript:alert(1)"/></svg>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "animation"):
+                validator.validate_svg(path)
+
+    def test_rejects_document_types_and_entities(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<!DOCTYPE svg [<!ENTITY marker "unsafe">]><svg>&marker;</svg>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "document types and entities"):
+                validator.validate_svg(path)
+
+    def test_accepts_internal_css_fragment_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "safe.svg"
+            path.write_text('<svg><rect fill="url(#gradient)"/></svg>', encoding="utf-8")
+            validator.validate_svg(path)
+
+
+class WorkflowValidationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        workflow_path = MODULE_PATH.parents[1] / ".github" / "workflows" / "validate-skill.yml"
+        self.workflow = workflow_path.read_text(encoding="utf-8")
+
+    def test_accepts_current_workflow(self) -> None:
+        self.assertEqual(validator.validate_workflow(self.workflow), [])
+
+    def test_rejects_write_permissions(self) -> None:
+        workflow = self.workflow.replace("contents: read", "contents: write")
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("write permissions" in error for error in errors))
+
+    def test_rejects_commented_read_only_permission(self) -> None:
+        workflow = self.workflow.replace("  contents: read", "  # contents: read")
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("read-only contents" in error for error in errors))
+
+    def test_rejects_unpinned_additional_action(self) -> None:
+        workflow = self.workflow.replace(
+            "      - name: Run regression tests",
+            "      - name: Unpinned action\n        uses: example/unsafe@main\n\n"
+            "      - name: Run regression tests",
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("example/unsafe@main" in error for error in errors))
+
+    def test_rejects_persisted_checkout_credentials(self) -> None:
+        workflow = self.workflow.replace("persist-credentials: false", "persist-credentials: true")
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("credential persistence" in error for error in errors))
+
+    def test_rejects_pull_request_target_trigger(self) -> None:
+        workflow = self.workflow.replace("  workflow_dispatch:", "  pull_request_target:\n  workflow_dispatch:")
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("pull_request_target" in error for error in errors))
+
+    def test_rejects_commented_checkout_action(self) -> None:
+        workflow = self.workflow.replace("        uses: actions/checkout@", "        # uses: actions/checkout@")
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("Checkout action must be pinned" in error for error in errors))
 
 
 class RepositoryValidationTests(unittest.TestCase):
