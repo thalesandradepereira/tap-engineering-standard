@@ -12,8 +12,14 @@ from pathlib import Path
 SKILL_NAME = "tap-engineering-standard"
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 CSS_URL_PATTERN = re.compile(r"url\s*\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
+CSS_ESCAPE_PATTERN = re.compile(
+    r"\\(?:([0-9a-fA-F]{1,6})(?:\r\n|[ \t\r\n\f])?|([^\r\n\f]))"
+)
 ACTION_REFERENCE_PATTERN = re.compile(
     r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*@[a-f0-9]{40}"
+)
+ACTION_USE_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_-])(?:[\"']?uses[\"']?)[ \t]*:[ \t]*(?P<action>[^\s,}#]+)"
 )
 REQUIRED_DOCUMENTS = (
     "README.md",
@@ -75,6 +81,8 @@ def validate_svg(path: Path) -> None:
     source = path.read_text(encoding="utf-8")
     if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", source, re.IGNORECASE):
         raise ValueError(f"SVG document types and entities are not allowed: {path}")
+    if re.search(r"<\?(?!xml(?:[ \t\r\n]|\?>))", source, re.IGNORECASE):
+        raise ValueError(f"SVG processing instructions are not allowed: {path}")
 
     root = ET.fromstring(source)
     if root.tag.rsplit("}", maxsplit=1)[-1] != "svg":
@@ -104,10 +112,22 @@ def validate_svg(path: Path) -> None:
 
 def validate_svg_css(value: str, path: Path) -> None:
     """Allow CSS fragment references while blocking imports and remote URLs."""
-    if re.search(r"@import\b", value, re.IGNORECASE):
+    def decode_escape(match: re.Match[str]) -> str:
+        hexadecimal, literal = match.groups()
+        if hexadecimal is None:
+            return literal
+        codepoint = int(hexadecimal, 16)
+        if codepoint == 0 or codepoint > 0x10FFFF or 0xD800 <= codepoint <= 0xDFFF:
+            return "\uFFFD"
+        return chr(codepoint)
+
+    normalized = CSS_ESCAPE_PATTERN.sub(decode_escape, value)
+    normalized = re.sub(r"/\*.*?\*/", "", normalized, flags=re.DOTALL)
+
+    if re.search(r"@import\b", normalized, re.IGNORECASE):
         raise ValueError(f"External SVG CSS imports are not allowed: {path}")
 
-    for match in CSS_URL_PATTERN.finditer(value):
+    for match in CSS_URL_PATTERN.finditer(normalized):
         if not match.group(2).strip().startswith("#"):
             raise ValueError(f"External SVG CSS references are not allowed: {path}")
 
@@ -139,41 +159,40 @@ def validate_workflow(workflow_text: str) -> list[str]:
     ):
         errors.append("GitHub Actions workflow must not request write permissions")
 
-    if re.search(r"^[ \t]*[\"']?pull_request_target[\"']?[ \t]*:", active_text, re.MULTILINE):
+    if re.search(r"(?<![A-Za-z0-9_-])pull_request_target(?![A-Za-z0-9_-])", active_text):
         errors.append("GitHub Actions workflow must not use pull_request_target")
 
     checkout_found = False
     for index, line in enumerate(lines):
         if line.lstrip().startswith("#"):
             continue
-        action_match = re.match(r"^(?P<indent>[ \t]*)(?:-[ \t]+)?uses:[ \t]+(?P<action>[^\s#]+)", line)
-        if not action_match:
-            continue
-
-        action = action_match.group("action")
-        if not ACTION_REFERENCE_PATTERN.fullmatch(action):
-            errors.append(f"GitHub Actions dependency must be pinned to a complete commit SHA: {action}")
-            continue
-
-        if not action.startswith("actions/checkout@"):
-            continue
-
-        checkout_found = True
-        indent = len(action_match.group("indent"))
-        checkout_lines: list[str] = []
-        for candidate in lines[index + 1 :]:
-            if not candidate.strip() or candidate.lstrip().startswith("#"):
+        for action_match in ACTION_USE_PATTERN.finditer(line):
+            action = action_match.group("action").strip("\"'")
+            if not ACTION_REFERENCE_PATTERN.fullmatch(action):
+                errors.append(
+                    f"GitHub Actions dependency must be pinned to a complete commit SHA: {action}"
+                )
                 continue
-            candidate_indent = len(candidate) - len(candidate.lstrip())
-            if candidate_indent < indent:
-                break
-            checkout_lines.append(candidate)
 
-        if not any(
-            re.match(r"^[ \t]+persist-credentials:[ \t]+false(?:[ \t]+#.*)?$", candidate)
-            for candidate in checkout_lines
-        ):
-            errors.append("Checkout action must disable credential persistence")
+            if not action.startswith("actions/checkout@"):
+                continue
+
+            checkout_found = True
+            indent = len(line) - len(line.lstrip())
+            checkout_lines: list[str] = []
+            for candidate in lines[index + 1 :]:
+                if not candidate.strip() or candidate.lstrip().startswith("#"):
+                    continue
+                candidate_indent = len(candidate) - len(candidate.lstrip())
+                if candidate_indent < indent:
+                    break
+                checkout_lines.append(candidate)
+
+            if not any(
+                re.match(r"^[ \t]+persist-credentials:[ \t]+false(?:[ \t]+#.*)?$", candidate)
+                for candidate in checkout_lines
+            ):
+                errors.append("Checkout action must disable credential persistence")
 
     if not checkout_found:
         errors.append("Checkout action must be pinned to a complete commit SHA")

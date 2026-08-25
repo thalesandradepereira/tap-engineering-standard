@@ -150,6 +150,58 @@ class SvgValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "document types and entities"):
                 validator.validate_svg(path)
 
+    def test_rejects_remote_stylesheet_processing_instructions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<?xml-stylesheet type="text/css" href="https://example.com/style.css"?><svg/>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "processing instructions"):
+                validator.validate_svg(path)
+
+    def test_accepts_standard_xml_declaration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "safe.svg"
+            path.write_text('<?xml version="1.0" encoding="UTF-8"?><svg/>', encoding="utf-8")
+            validator.validate_svg(path)
+
+    def test_rejects_escaped_css_import(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                r'<svg><style>@\69mport "https://example.com/style.css";</style></svg>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "CSS imports"):
+                validator.validate_svg(path)
+
+    def test_rejects_escaped_css_remote_url(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                r'<svg style="background: u\72l(https://example.com/pixel)"/>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "CSS references"):
+                validator.validate_svg(path)
+
+    def test_rejects_css_import_obfuscated_with_comments(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<svg><style>@im/**/port "https://example.com/style.css";</style></svg>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "CSS imports"):
+                validator.validate_svg(path)
+
+    def test_accepts_escaped_internal_css_fragment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "safe.svg"
+            path.write_text(r'<svg><rect fill="url(\23 gradient)"/></svg>', encoding="utf-8")
+            validator.validate_svg(path)
+
     def test_accepts_internal_css_fragment_references(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "safe.svg"
@@ -193,6 +245,39 @@ class WorkflowValidationTests(unittest.TestCase):
         workflow = self.workflow.replace("  workflow_dispatch:", "  pull_request_target:\n  workflow_dispatch:")
         errors = validator.validate_workflow(workflow)
         self.assertTrue(any("pull_request_target" in error for error in errors))
+
+    def test_rejects_pull_request_target_flow_sequence(self) -> None:
+        workflow = self.workflow.replace(
+            "on:\n  push:\n    branches: [main]\n  pull_request:\n"
+            "    branches: [main]\n  workflow_dispatch:",
+            "on: [pull_request_target]",
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("pull_request_target" in error for error in errors))
+
+    def test_rejects_unpinned_action_in_flow_mapping(self) -> None:
+        workflow = self.workflow.replace(
+            "      - name: Run regression tests",
+            "      - {uses: example/unsafe@main}\n\n      - name: Run regression tests",
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("example/unsafe@main" in error for error in errors))
+
+    def test_rejects_unpinned_action_with_spaced_mapping_key(self) -> None:
+        workflow = self.workflow.replace(
+            "      - name: Run regression tests",
+            "      - uses : example/unsafe@main\n\n      - name: Run regression tests",
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("example/unsafe@main" in error for error in errors))
+
+    def test_rejects_quoted_unpinned_action(self) -> None:
+        workflow = self.workflow.replace(
+            "      - name: Run regression tests",
+            '      - "uses": "example/unsafe@main"\n\n      - name: Run regression tests',
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("example/unsafe@main" in error for error in errors))
 
     def test_rejects_commented_checkout_action(self) -> None:
         workflow = self.workflow.replace("        uses: actions/checkout@", "        # uses: actions/checkout@")
