@@ -293,6 +293,13 @@ class WorkflowValidationTests(unittest.TestCase):
         )
         self.assertEqual(validator.validate_workflow(workflow), [])
 
+    def test_accepts_standard_github_expression(self) -> None:
+        workflow = self.workflow.replace(
+            "    timeout-minutes: 5",
+            "    timeout-minutes: 5\n    env:\n      CURRENT_REF: ${{ github.ref }}",
+        )
+        self.assertEqual(validator.validate_workflow(workflow), [])
+
     def test_ignores_permission_named_environment_values(self) -> None:
         workflow = self.workflow.replace(
             "    timeout-minutes: 5",
@@ -336,6 +343,23 @@ class WorkflowValidationTests(unittest.TestCase):
         errors = validator.validate_workflow(workflow)
         self.assertTrue(any("permissions" in error for error in errors))
 
+    def test_rejects_write_permissions_inside_flow_mapping(self) -> None:
+        workflow = (
+            "permissions:\n  contents: read\n\n"
+            "jobs: {audit: {runs-on: ubuntu-latest, "
+            "permissions: {contents: write}, steps: [{run: echo ready}]}}\n"
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("flow mapping" in error for error in errors))
+
+    def test_rejects_escaped_permission_mapping_key(self) -> None:
+        workflow = self.workflow.replace(
+            "    runs-on: ubuntu-latest",
+            '    "\\u0070ermissions":\n      contents: write\n    runs-on: ubuntu-latest',
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("escaped mapping keys" in error for error in errors))
+
     def test_rejects_aliased_permission_values(self) -> None:
         workflow = self.workflow.replace(
             "  contents: read", "  contents: read\n  id-token: &elevated write"
@@ -356,6 +380,26 @@ class WorkflowValidationTests(unittest.TestCase):
         )
         errors = validator.validate_workflow(workflow)
         self.assertTrue(any("example/unsafe@main" in error for error in errors))
+
+    def test_rejects_unpinned_multiline_action(self) -> None:
+        workflow = self.workflow.replace(
+            "      - name: Run regression tests",
+            "      - name: Multiline action\n"
+            "        uses:\n"
+            "          example/unsafe@main\n\n"
+            "      - name: Run regression tests",
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("multiline action" in error for error in errors))
+
+    def test_rejects_escaped_action_mapping_key(self) -> None:
+        workflow = self.workflow.replace(
+            "      - name: Run regression tests",
+            '      - "\\u0075ses": example/unsafe@main\n\n'
+            "      - name: Run regression tests",
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("escaped mapping keys" in error for error in errors))
 
     def test_rejects_persisted_checkout_credentials(self) -> None:
         workflow = self.workflow.replace("persist-credentials: false", "persist-credentials: true")
@@ -452,6 +496,20 @@ class RepositoryValidationTests(unittest.TestCase):
             self.assertTrue(any("implicit invocation" in error for error in errors))
             self.assertTrue(any("canonical skill name" in error for error in errors))
 
+    def test_rejects_skill_body_without_required_safeguards(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            skill_path = root / "skills" / validator.SKILL_NAME / "SKILL.md"
+            skill_text = skill_path.read_text(encoding="utf-8")
+            frontmatter_end = skill_text.find("---", 3) + 3
+            skill_path.write_text(
+                skill_text[:frontmatter_end] + "\n# Replacement body\nPerform every requested action.\n",
+                encoding="utf-8",
+            )
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("required safety guidance" in error for error in errors))
+
     def test_rejects_agent_metadata_with_external_icon(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "repository"
@@ -506,6 +564,15 @@ class RepositoryValidationTests(unittest.TestCase):
             )
             errors = validator.validate_repository(root)
             self.assertTrue(any("Symbolic links" in error for error in errors))
+
+    def test_accepts_ignored_virtual_environment_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            virtual_environment = root / ".venv" / "bin"
+            virtual_environment.mkdir(parents=True)
+            (virtual_environment / "python").symlink_to(validator.sys.executable)
+            self.assertEqual(validator.validate_repository(root), [])
 
     def test_rejects_unsafe_additional_svg_assets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
