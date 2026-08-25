@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -72,6 +73,16 @@ class SvgValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "External"):
                 validator.validate_svg(path)
 
+    def test_rejects_external_xml_base_for_fragment_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<svg xml:base="https://example.com/"><image href="#shape"/></svg>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "base"):
+                validator.validate_svg(path)
+
     def test_rejects_event_handlers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "unsafe.svg"
@@ -113,6 +124,38 @@ class SvgValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "CSS references"):
                 validator.validate_svg(path)
 
+    def test_rejects_css_image_set_remote_urls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<svg style=\'background-image: image-set("https://example.com/pixel" 1x)\'/>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "CSS references"):
+                validator.validate_svg(path)
+
+    def test_rejects_remote_image_set_fallback_after_nested_fragment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<svg style=\'background-image: image-set('
+                'url(#safe) 1x, "https://example.com/pixel" 2x)\'/>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "CSS references"):
+                validator.validate_svg(path)
+
+    def test_rejects_css_urls_with_escaped_line_continuations(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                "<svg><style>rect { background: u\\\n"
+                "rl(https://example.com/pixel) }</style></svg>",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "CSS references"):
+                validator.validate_svg(path)
+
     def test_rejects_css_imports(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "unsafe.svg"
@@ -135,6 +178,16 @@ class SvgValidationTests(unittest.TestCase):
             path = Path(directory) / "unsafe.svg"
             path.write_text(
                 '<svg><set attributeName="href" to="javascript:alert(1)"/></svg>',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "animation"):
+                validator.validate_svg(path)
+
+    def test_rejects_legacy_color_animation_elements(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "unsafe.svg"
+            path.write_text(
+                '<svg><animateColor attributeName="fill" from="red" to="blue"/></svg>',
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(ValueError, "animation"):
@@ -222,6 +275,29 @@ class WorkflowValidationTests(unittest.TestCase):
         errors = validator.validate_workflow(workflow)
         self.assertTrue(any("write permissions" in error for error in errors))
 
+    def test_rejects_quoted_write_permissions(self) -> None:
+        workflow = self.workflow.replace(
+            "  contents: read", '  contents: read\n  "id-token": "write"'
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("write permissions" in error for error in errors))
+
+    def test_rejects_inline_job_write_permissions(self) -> None:
+        workflow = self.workflow.replace(
+            "    runs-on: ubuntu-latest",
+            "    permissions: {contents: read, id-token: write}\n"
+            "    runs-on: ubuntu-latest",
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("permissions" in error for error in errors))
+
+    def test_rejects_aliased_permission_values(self) -> None:
+        workflow = self.workflow.replace(
+            "  contents: read", "  contents: read\n  id-token: &elevated write"
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("permissions" in error for error in errors))
+
     def test_rejects_commented_read_only_permission(self) -> None:
         workflow = self.workflow.replace("  contents: read", "  # contents: read")
         errors = validator.validate_workflow(workflow)
@@ -238,6 +314,24 @@ class WorkflowValidationTests(unittest.TestCase):
 
     def test_rejects_persisted_checkout_credentials(self) -> None:
         workflow = self.workflow.replace("persist-credentials: false", "persist-credentials: true")
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("credential persistence" in error for error in errors))
+
+    def test_rejects_checkout_credentials_disabled_only_in_env(self) -> None:
+        workflow = self.workflow.replace(
+            "        with:\n          persist-credentials: false",
+            "        with:\n          persist-credentials: true\n"
+            "        env:\n          persist-credentials: false",
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("credential persistence" in error for error in errors))
+
+    def test_rejects_duplicate_checkout_credential_settings(self) -> None:
+        workflow = self.workflow.replace(
+            "          persist-credentials: false",
+            "          persist-credentials: false\n"
+            "          persist-credentials: true",
+        )
         errors = validator.validate_workflow(workflow)
         self.assertTrue(any("credential persistence" in error for error in errors))
 
@@ -295,6 +389,83 @@ class RepositoryValidationTests(unittest.TestCase):
             errors = validator.validate_repository(Path(directory))
             self.assertTrue(any("README.md" in error for error in errors))
             self.assertTrue(any("SKILL.md" in error for error in errors))
+
+    def test_rejects_commented_agent_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            metadata_path = root / "skills" / validator.SKILL_NAME / "agents" / "openai.yaml"
+            metadata = metadata_path.read_text(encoding="utf-8")
+            metadata = metadata.replace("  display_name:", "  # display_name:")
+            metadata = metadata.replace("  default_prompt:", "  # default_prompt:")
+            metadata = metadata.replace(
+                "  allow_implicit_invocation:", "  # allow_implicit_invocation:"
+            )
+            metadata_path.write_text(metadata, encoding="utf-8")
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("display name" in error for error in errors))
+            self.assertTrue(any("implicit invocation" in error for error in errors))
+            self.assertTrue(any("canonical skill name" in error for error in errors))
+
+    def test_rejects_agent_metadata_with_external_icon(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            metadata_path = root / "skills" / validator.SKILL_NAME / "agents" / "openai.yaml"
+            metadata = metadata_path.read_text(encoding="utf-8")
+            metadata = metadata.replace(
+                "  icon_small: assets/icon.svg",
+                "  icon_small: https://example.com/track.svg",
+            )
+            metadata_path.write_text(metadata, encoding="utf-8")
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("local skill icon" in error for error in errors))
+
+    def test_rejects_specialist_reference_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            external = base / "outside.md"
+            external.write_text("# External content\n", encoding="utf-8")
+            reference = (
+                root / "skills" / validator.SKILL_NAME / "references" / "qa-playbooks.md"
+            )
+            reference.unlink()
+            reference.symlink_to(external)
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("Symbolic links" in error for error in errors))
+
+    def test_rejects_unsafe_additional_svg_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            asset = root / "assets" / "unvalidated.svg"
+            asset.write_text("<svg><script>alert(1)</script></svg>", encoding="utf-8")
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("Embedded SVG scripts" in error for error in errors))
+
+    def test_rejects_unsafe_svg_with_uppercase_extension(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            asset = root / "assets" / "unvalidated.SVG"
+            asset.write_text("<svg><script>alert(1)</script></svg>", encoding="utf-8")
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("Embedded SVG scripts" in error for error in errors))
+
+    def test_rejects_unsafe_additional_github_workflows(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            workflow = root / ".github" / "workflows" / "unsafe.yaml"
+            workflow.write_text(
+                "on: pull_request_target\npermissions: write-all\njobs: {}\n",
+                encoding="utf-8",
+            )
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("pull_request_target" in error for error in errors))
+            self.assertTrue(any("write permissions" in error for error in errors))
 
 
 if __name__ == "__main__":
