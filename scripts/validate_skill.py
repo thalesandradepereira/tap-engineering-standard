@@ -147,6 +147,8 @@ def validate_repository(root: Path) -> list[str]:
             errors.append("GitHub Actions workflow must not use pull_request_target")
         if not re.search(r"actions/checkout@[a-f0-9]{40}\b", workflow_text):
             errors.append("Checkout action must be pinned to a complete commit SHA")
+        if "persist-credentials: false" not in workflow_text:
+            errors.append("Checkout action must disable credential persistence")
 
     return errors
 

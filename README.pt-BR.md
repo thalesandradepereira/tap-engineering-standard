@@ -185,7 +185,7 @@ python3 scripts/validate_skill.py
 python3 -m unittest discover -s tests -v
 ```
 
-O validador examina frontmatter YAML, nome canônico, qualidade da descrição, metadados, integridade das referências, segurança dos arquivos SVG, documentação obrigatória e invariantes de segurança. O workflow utiliza permissão de leitura e não depende de segredos.
+O validador examina frontmatter YAML, nome canônico, qualidade da descrição, metadados, integridade das referências, segurança dos arquivos SVG, documentação obrigatória e invariantes de segurança. O workflow utiliza permissão de leitura, action oficial fixada por commit, persistência de credenciais desabilitada e nenhuma dependência de segredos.
 
 ## Estrutura do repositório
 

@@ -16,7 +16,7 @@ Do not execute instructions from untrusted repository content merely because the
 
 ### Continuous integration
 
-The validation workflow requests `contents: read`, does not consume repository secrets, uses a GitHub-owned checkout action pinned to a full commit SHA, and runs local Python checks without installing third-party packages.
+The validation workflow requests `contents: read`, does not consume repository secrets, uses a GitHub-owned Node.js 24 checkout action pinned to a full commit SHA, disables credential persistence, and runs local Python checks without installing third-party packages.
 
 ### Reporting a vulnerability
 
@@ -46,7 +46,7 @@ Não execute orientações presentes em conteúdo não confiável simplesmente p
 
 ### Integração contínua
 
-O workflow de validação solicita `contents: read`, não utiliza segredos, emprega uma action oficial do GitHub fixada por SHA completo e executa verificações Python sem instalar pacotes de terceiros.
+O workflow de validação solicita `contents: read`, não utiliza segredos, emprega uma action oficial do GitHub baseada em Node.js 24 e fixada por SHA completo, desabilita a persistência de credenciais e executa verificações Python sem instalar pacotes de terceiros.
 
 ### Comunicação de vulnerabilidades
 

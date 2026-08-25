@@ -185,7 +185,7 @@ python3 scripts/validate_skill.py
 python3 -m unittest discover -s tests -v
 ```
 
-The validator checks the required YAML frontmatter, canonical name, description quality, package metadata, reference integrity, SVG security, required documentation, and security-sensitive repository invariants. The workflow requests read-only repository permissions and does not require secrets.
+The validator checks the required YAML frontmatter, canonical name, description quality, package metadata, reference integrity, SVG security, required documentation, and security-sensitive repository invariants. The workflow requests read-only repository permissions, uses a commit-pinned official checkout action, disables credential persistence, and does not require secrets.
 
 ## Repository layout
 
