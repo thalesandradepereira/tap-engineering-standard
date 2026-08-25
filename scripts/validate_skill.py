@@ -94,11 +94,45 @@ def parse_frontmatter(content: str) -> dict[str, str]:
 
 def validate_skill_body(content: str) -> list[str]:
     """Require the structural safeguards that define the published skill."""
-    return [
-        f"SKILL.md is missing required safety guidance: {marker}"
-        for marker in REQUIRED_SKILL_BODY_MARKERS
-        if marker not in content
-    ]
+    body = re.sub(
+        r"\A---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|\Z)",
+        "",
+        content,
+        count=1,
+        flags=re.DOTALL,
+    )
+    body = re.sub(r"<!--.*?(?:-->|\Z)", "", body, flags=re.DOTALL)
+
+    visible_lines: list[str] = []
+    fence: tuple[str, int] | None = None
+    for line in body.splitlines():
+        if fence is not None:
+            character, length = fence
+            if re.fullmatch(rf"[ \t]{{0,3}}{re.escape(character)}{{{length},}}[ \t]*", line):
+                fence = None
+            continue
+
+        fence_match = re.match(r"^[ \t]{0,3}(`{3,}|~{3,})", line)
+        if fence_match is not None:
+            opening = fence_match.group(1)
+            fence = (opening[0], len(opening))
+            continue
+        visible_lines.append(line)
+
+    visible_body = "\n".join(visible_lines)
+    errors: list[str] = []
+    for marker in REQUIRED_SKILL_BODY_MARKERS:
+        if marker.startswith("#"):
+            found = re.search(
+                rf"^[ \t]{{0,3}}{re.escape(marker)}[ \t]*$",
+                visible_body,
+                re.MULTILINE,
+            ) is not None
+        else:
+            found = marker in visible_body
+        if not found:
+            errors.append(f"SKILL.md is missing required safety guidance: {marker}")
+    return errors
 
 
 def validate_svg(path: Path) -> None:
@@ -393,6 +427,29 @@ def step_content_indent(line: str) -> int:
     return indent
 
 
+def mask_yaml_block_scalars(lines: list[str]) -> list[str]:
+    """Keep YAML mappings visible while excluding indented block-scalar payloads."""
+    masked: list[str] = []
+    scalar_indent: int | None = None
+
+    for line in lines:
+        if scalar_indent is not None:
+            if not line.strip():
+                masked.append("")
+                continue
+            indent = len(line) - len(line.lstrip(" \t"))
+            if indent > scalar_indent:
+                masked.append("")
+                continue
+            scalar_indent = None
+
+        masked.append(line)
+        if re.search(r":[ \t]*[>|](?:[1-9][+-]?|[+-][1-9]?)?[ \t]*$", line):
+            scalar_indent = step_content_indent(line)
+
+    return masked
+
+
 def checkout_disables_credentials(lines: list[str], index: int, indent: int) -> bool:
     """Require exactly one false setting inside the checkout action's with block."""
     with_blocks: list[tuple[int, int]] = []
@@ -432,7 +489,9 @@ def checkout_disables_credentials(lines: list[str], index: int, indent: int) -> 
 def validate_workflow(workflow_text: str, *, require_checkout: bool = False) -> list[str]:
     """Validate the small, intentionally dependency-free GitHub Actions workflow."""
     errors: list[str] = []
-    lines = [strip_yaml_comment(line) for line in workflow_text.splitlines()]
+    lines = mask_yaml_block_scalars(
+        [strip_yaml_comment(line) for line in workflow_text.splitlines()]
+    )
     active_lines = [line for line in lines if line.strip()]
     active_text = "\n".join(active_lines)
 
