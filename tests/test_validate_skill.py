@@ -270,6 +270,51 @@ class WorkflowValidationTests(unittest.TestCase):
     def test_accepts_current_workflow(self) -> None:
         self.assertEqual(validator.validate_workflow(self.workflow), [])
 
+    def test_accepts_secure_compact_checkout_step(self) -> None:
+        workflow = self.workflow.replace(
+            "      - name: Check out repository\n        uses:", "      - uses:"
+        )
+        self.assertEqual(validator.validate_workflow(workflow), [])
+
+    def test_rejects_persisted_credentials_in_compact_checkout_step(self) -> None:
+        workflow = self.workflow.replace(
+            "      - name: Check out repository\n        uses:", "      - uses:"
+        ).replace("persist-credentials: false", "persist-credentials: true")
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("credential persistence" in error for error in errors))
+
+    def test_accepts_workflow_without_checkout_when_not_required(self) -> None:
+        workflow = (
+            "name: API-only workflow\n"
+            "on:\n  workflow_dispatch:\n"
+            "permissions:\n  contents: read\n"
+            "jobs:\n  notify:\n    runs-on: ubuntu-latest\n"
+            "    steps:\n      - run: echo ready\n"
+        )
+        self.assertEqual(validator.validate_workflow(workflow), [])
+
+    def test_ignores_permission_named_environment_values(self) -> None:
+        workflow = self.workflow.replace(
+            "    timeout-minutes: 5",
+            "    timeout-minutes: 5\n    env:\n      permissions: harmless",
+        )
+        self.assertEqual(validator.validate_workflow(workflow), [])
+
+    def test_ignores_permission_named_action_inputs(self) -> None:
+        workflow = self.workflow.replace(
+            "          persist-credentials: false",
+            "          persist-credentials: false\n          permissions: harmless",
+        )
+        self.assertEqual(validator.validate_workflow(workflow), [])
+
+    def test_rejects_job_level_write_permissions(self) -> None:
+        workflow = self.workflow.replace(
+            "    runs-on: ubuntu-latest",
+            "    permissions:\n      contents: write\n    runs-on: ubuntu-latest",
+        )
+        errors = validator.validate_workflow(workflow)
+        self.assertTrue(any("write permissions" in error for error in errors))
+
     def test_rejects_write_permissions(self) -> None:
         workflow = self.workflow.replace("contents: read", "contents: write")
         errors = validator.validate_workflow(workflow)
@@ -375,7 +420,7 @@ class WorkflowValidationTests(unittest.TestCase):
 
     def test_rejects_commented_checkout_action(self) -> None:
         workflow = self.workflow.replace("        uses: actions/checkout@", "        # uses: actions/checkout@")
-        errors = validator.validate_workflow(workflow)
+        errors = validator.validate_workflow(workflow, require_checkout=True)
         self.assertTrue(any("Checkout action must be pinned" in error for error in errors))
 
 
@@ -436,6 +481,32 @@ class RepositoryValidationTests(unittest.TestCase):
             errors = validator.validate_repository(root)
             self.assertTrue(any("Symbolic links" in error for error in errors))
 
+    def test_rejects_arbitrary_symbolic_link_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            external = base / "outside.sh"
+            external.write_text("echo external\n", encoding="utf-8")
+            scripts = root / "skills" / validator.SKILL_NAME / "scripts"
+            scripts.mkdir()
+            (scripts / "helper.sh").symlink_to(external)
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("Symbolic links" in error for error in errors))
+
+    def test_rejects_symbolic_link_to_external_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            root = base / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            external = base / "outside"
+            external.mkdir()
+            (root / "skills" / validator.SKILL_NAME / "external").symlink_to(
+                external, target_is_directory=True
+            )
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("Symbolic links" in error for error in errors))
+
     def test_rejects_unsafe_additional_svg_assets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "repository"
@@ -466,6 +537,34 @@ class RepositoryValidationTests(unittest.TestCase):
             errors = validator.validate_repository(root)
             self.assertTrue(any("pull_request_target" in error for error in errors))
             self.assertTrue(any("write permissions" in error for error in errors))
+
+    def test_accepts_safe_additional_workflow_without_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            workflow = root / ".github" / "workflows" / "notify.yaml"
+            workflow.write_text(
+                "name: API-only workflow\n"
+                "on:\n  workflow_dispatch:\n"
+                "permissions:\n  contents: read\n"
+                "jobs:\n  notify:\n    runs-on: ubuntu-latest\n"
+                "    steps:\n      - run: echo ready\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(validator.validate_repository(root), [])
+
+    def test_rejects_required_validation_workflow_without_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            workflow_path = root / ".github" / "workflows" / "validate-skill.yml"
+            workflow = workflow_path.read_text(encoding="utf-8")
+            workflow = workflow.replace(
+                "        uses: actions/checkout@", "        # uses: actions/checkout@"
+            )
+            workflow_path.write_text(workflow, encoding="utf-8")
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("Checkout action must be pinned" in error for error in errors))
 
 
 if __name__ == "__main__":

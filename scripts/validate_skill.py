@@ -232,6 +232,30 @@ def validate_agent_metadata(metadata_text: str) -> list[str]:
     return errors
 
 
+def is_token_permission_mapping(lines: list[str], index: int, indent: int) -> bool:
+    """Limit token permission declarations to the workflow root and job mappings."""
+    if indent == 0:
+        return True
+
+    ancestors: list[str] = []
+    child_indent = indent
+    for candidate in reversed(lines[:index]):
+        if not candidate.strip():
+            continue
+        candidate_indent = len(candidate) - len(candidate.lstrip())
+        if candidate_indent >= child_indent:
+            continue
+        key, separator, _ = candidate.strip().partition(":")
+        if not separator:
+            return False
+        ancestors.append(key.strip("'\""))
+        child_indent = candidate_indent
+        if candidate_indent == 0:
+            break
+
+    return len(ancestors) == 2 and ancestors[1] == "jobs"
+
+
 def validate_workflow_permissions(lines: list[str]) -> list[str]:
     """Reject writable, aliased, or unsupported permission mappings."""
     errors: list[str] = []
@@ -247,13 +271,16 @@ def validate_workflow_permissions(lines: list[str]) -> list[str]:
         if match is None:
             continue
 
+        indent = len(match.group("indent"))
+        if not is_token_permission_mapping(lines, index, indent):
+            continue
+
         if match.group("value"):
             errors.append("GitHub Actions workflow uses unsupported permissions syntax")
             if re.search(r"(?:^|[\s,:{])['\"]?write(?:-all)?['\"]?(?:$|[\s,}])", line):
                 errors.append("GitHub Actions workflow must not request write permissions")
             continue
 
-        indent = len(match.group("indent"))
         seen_scopes: set[str] = set()
         for candidate in lines[index + 1 :]:
             if not candidate.strip():
@@ -277,6 +304,16 @@ def validate_workflow_permissions(lines: list[str]) -> list[str]:
                 errors.append("GitHub Actions workflow uses unsupported permissions syntax")
 
     return errors
+
+
+def step_content_indent(line: str) -> int:
+    """Return the mapping indent for normal and compact YAML list-item steps."""
+    stripped = line.lstrip(" \t")
+    indent = len(line) - len(stripped)
+    if stripped.startswith("-"):
+        content = stripped[1:]
+        return indent + 1 + len(content) - len(content.lstrip(" \t"))
+    return indent
 
 
 def checkout_disables_credentials(lines: list[str], index: int, indent: int) -> bool:
@@ -315,7 +352,7 @@ def checkout_disables_credentials(lines: list[str], index: int, indent: int) -> 
     return settings == ["false"]
 
 
-def validate_workflow(workflow_text: str) -> list[str]:
+def validate_workflow(workflow_text: str, *, require_checkout: bool = False) -> list[str]:
     """Validate the small, intentionally dependency-free GitHub Actions workflow."""
     errors: list[str] = []
     lines = [strip_yaml_comment(line) for line in workflow_text.splitlines()]
@@ -355,11 +392,11 @@ def validate_workflow(workflow_text: str) -> list[str]:
                 continue
 
             checkout_found = True
-            indent = len(line) - len(line.lstrip())
+            indent = step_content_indent(line)
             if not checkout_disables_credentials(lines, index, indent):
                 errors.append("Checkout action must disable credential persistence")
 
-    if not checkout_found:
+    if require_checkout and not checkout_found:
         errors.append("Checkout action must be pinned to a complete commit SHA")
 
     return errors
@@ -374,10 +411,6 @@ def validate_repository(root: Path) -> list[str]:
     def validate_file_path(path: Path, missing_error: str) -> bool:
         if path in checked_files:
             return checked_files[path]
-        if not path.is_file():
-            errors.append(missing_error)
-            checked_files[path] = False
-            return False
 
         relative_path = path.relative_to(root)
         candidate = root
@@ -390,6 +423,11 @@ def validate_repository(root: Path) -> list[str]:
                 checked_files[path] = False
                 return False
 
+        if not path.is_file():
+            errors.append(missing_error)
+            checked_files[path] = False
+            return False
+
         if not path.resolve().is_relative_to(root.resolve()):
             errors.append(
                 f"Symbolic links and external repository files are not allowed: {relative_path}"
@@ -399,6 +437,13 @@ def validate_repository(root: Path) -> list[str]:
 
         checked_files[path] = True
         return True
+
+    for repository_path in root.rglob("*"):
+        relative_path = repository_path.relative_to(root)
+        if relative_path.parts[0] == ".git":
+            continue
+        if repository_path.is_file() or repository_path.is_symlink():
+            validate_file_path(repository_path, f"Invalid repository file: {relative_path}")
 
     for relative_path in REQUIRED_DOCUMENTS:
         validate_file_path(
@@ -460,7 +505,7 @@ def validate_repository(root: Path) -> list[str]:
     for candidate in sorted(workflow_paths):
         if validate_file_path(candidate, "Missing GitHub Actions validation workflow"):
             workflow_text = candidate.read_text(encoding="utf-8")
-            errors.extend(validate_workflow(workflow_text))
+            errors.extend(validate_workflow(workflow_text, require_checkout=candidate == workflow_path))
 
     return errors
 
