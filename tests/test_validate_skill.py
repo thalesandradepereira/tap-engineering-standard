@@ -24,6 +24,13 @@ class FrontmatterValidationTests(unittest.TestCase):
         )
         self.assertEqual(metadata["name"], "tap-engineering-standard")
 
+    def test_accepts_indented_frontmatter_delimiters(self) -> None:
+        metadata = validator.parse_frontmatter(
+            "  ---\nname: tap-engineering-standard\n"
+            "description: Useful engineering instructions\n\t---\n# Body\n"
+        )
+        self.assertEqual(metadata["name"], "tap-engineering-standard")
+
     def test_rejects_missing_delimiter(self) -> None:
         with self.assertRaisesRegex(ValueError, "must begin"):
             validator.parse_frontmatter("name: example\n")
@@ -57,6 +64,66 @@ class FrontmatterValidationTests(unittest.TestCase):
             validator.parse_frontmatter(
                 "---\nname: example\ndescription: example\nauthor: someone\n---\n# Body\n"
             )
+
+
+class SkillBodyValidationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        skill_path = MODULE_PATH.parents[1] / "skills" / validator.SKILL_NAME / "SKILL.md"
+        self.skill_text = skill_path.read_text(encoding="utf-8")
+        self.markers = list(validator.REQUIRED_SKILL_BODY_MARKERS)
+
+    def test_rejects_safeguards_inside_bullet_list_fence(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "- ```markdown\n" + hidden_markers + "\n  ```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_ordered_list_fence(self) -> None:
+        hidden_markers = "\n".join("   " + marker for marker in self.markers)
+        content = "1. ```markdown\n" + hidden_markers + "\n   ```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_bullet_list_tilde_fence(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "- ~~~markdown\n" + hidden_markers + "\n  ~~~\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_accepts_unclosed_html_comment_inside_fenced_example(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "```html\n<!-- illustrative unclosed comment\n```\n\n"
+            "# TAP Engineering Standard\n",
+            1,
+        )
+        self.assertEqual(validator.validate_skill_body(content), [])
+
+    def test_accepts_unclosed_html_comment_inside_list_fenced_example(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "- ```html\n  <!-- illustrative unclosed comment\n  ```\n\n"
+            "# TAP Engineering Standard\n",
+            1,
+        )
+        self.assertEqual(validator.validate_skill_body(content), [])
+
+    def test_rejects_markers_inside_real_comment_after_fenced_example(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        content = "```html\n<!-- illustrative\n```\n<!--\n" + hidden_markers + "\n-->\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_guidance_present_only_in_indented_frontmatter(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        guidance = " ".join(marker for marker in self.markers if not marker.startswith("#"))
+        content = (
+            " \t---\nname: tap-engineering-standard\n"
+            f"description: {guidance}\n  ---\n{headings}\n"
+        )
+        validator.parse_frontmatter(content)
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
 
 
 class SvgValidationTests(unittest.TestCase):

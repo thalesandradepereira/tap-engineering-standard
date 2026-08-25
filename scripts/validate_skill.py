@@ -53,8 +53,8 @@ REQUIRED_SKILL_BODY_MARKERS = (
 )
 
 
-def parse_frontmatter(content: str) -> dict[str, str]:
-    """Read the intentionally simple, two-field YAML frontmatter."""
+def split_frontmatter(content: str) -> tuple[list[str], list[str]]:
+    """Split metadata and instructions using one shared delimiter interpretation."""
     lines = content.splitlines()
     if not lines or lines[0].strip() != "---":
         raise ValueError("SKILL.md must begin with a YAML frontmatter delimiter")
@@ -66,8 +66,14 @@ def parse_frontmatter(content: str) -> dict[str, str]:
     except StopIteration as error:
         raise ValueError("SKILL.md frontmatter is missing its closing delimiter") from error
 
+    return lines[1:closing_index], lines[closing_index + 1 :]
+
+
+def parse_frontmatter(content: str) -> dict[str, str]:
+    """Read the intentionally simple, two-field YAML frontmatter."""
+    frontmatter_lines, body_lines = split_frontmatter(content)
     metadata: dict[str, str] = {}
-    for line in lines[1:closing_index]:
+    for line in frontmatter_lines:
         if not line.strip():
             continue
         key, separator, value = line.partition(":")
@@ -86,40 +92,83 @@ def parse_frontmatter(content: str) -> dict[str, str]:
     if missing:
         raise ValueError(f"Missing frontmatter fields: {', '.join(sorted(missing))}")
 
-    if not any(line.strip() for line in lines[closing_index + 1 :]):
+    if not any(line.strip() for line in body_lines):
         raise ValueError("SKILL.md must include an instruction body")
 
     return metadata
 
 
-def validate_skill_body(content: str) -> list[str]:
-    """Require the structural safeguards that define the published skill."""
-    body = re.sub(
-        r"\A---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|\Z)",
-        "",
-        content,
-        count=1,
-        flags=re.DOTALL,
+def visible_markdown_lines(lines: list[str]) -> list[str]:
+    """Exclude real comments and fenced examples without confusing their contexts."""
+    fence_pattern = re.compile(
+        r"^[ \t]*(?:(?:>[ \t]*|(?:[-+*]|\d{1,9}[.)])[ \t]+|\[[ xX]\][ \t]+))*"
+        r"(?P<fence>`{3,}|~{3,})(?P<suffix>.*)$"
     )
-    body = re.sub(r"<!--.*?(?:-->|\Z)", "", body, flags=re.DOTALL)
-
     visible_lines: list[str] = []
     fence: tuple[str, int] | None = None
-    for line in body.splitlines():
+    comment = False
+
+    for raw_line in lines:
         if fence is not None:
             character, length = fence
-            if re.fullmatch(rf"[ \t]{{0,3}}{re.escape(character)}{{{length},}}[ \t]*", line):
+            closing = fence_pattern.match(raw_line)
+            if (
+                closing is not None
+                and closing.group("fence").startswith(character)
+                and len(closing.group("fence")) >= length
+                and not closing.group("suffix").strip()
+            ):
                 fence = None
             continue
 
-        fence_match = re.match(r"^[ \t]{0,3}(`{3,}|~{3,})", line)
-        if fence_match is not None:
-            opening = fence_match.group(1)
-            fence = (opening[0], len(opening))
+        opening = fence_pattern.match(raw_line) if not comment else None
+        if opening is not None:
+            marker = opening.group("fence")
+            fence = (marker[0], len(marker))
             continue
-        visible_lines.append(line)
 
-    visible_body = "\n".join(visible_lines)
+        fragments: list[str] = []
+        position = 0
+        while position < len(raw_line):
+            if comment:
+                closing_position = raw_line.find("-->", position)
+                if closing_position == -1:
+                    position = len(raw_line)
+                    break
+                comment = False
+                position = closing_position + 3
+                continue
+
+            opening_position = raw_line.find("<!--", position)
+            if opening_position == -1:
+                fragments.append(raw_line[position:])
+                break
+            fragments.append(raw_line[position:opening_position])
+            position = opening_position + 4
+            comment = True
+
+        line = "".join(fragments)
+        opening = fence_pattern.match(line) if not comment else None
+        if opening is not None:
+            marker = opening.group("fence")
+            fence = (marker[0], len(marker))
+            continue
+        if line:
+            visible_lines.append(line)
+
+    return visible_lines
+
+
+def validate_skill_body(content: str) -> list[str]:
+    """Require the structural safeguards that define the published skill."""
+    lines = content.splitlines()
+    if lines and lines[0].strip() == "---":
+        try:
+            _, lines = split_frontmatter(content)
+        except ValueError:
+            lines = []
+
+    visible_body = "\n".join(visible_markdown_lines(lines))
     errors: list[str] = []
     for marker in REQUIRED_SKILL_BODY_MARKERS:
         if marker.startswith("#"):
