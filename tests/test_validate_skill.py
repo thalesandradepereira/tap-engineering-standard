@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -573,6 +574,21 @@ class RepositoryValidationTests(unittest.TestCase):
             virtual_environment.mkdir(parents=True)
             (virtual_environment / "python").symlink_to(validator.sys.executable)
             self.assertEqual(validator.validate_repository(root), [])
+
+    def test_rejects_tracked_virtual_environment_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            shutil.copytree(MODULE_PATH.parents[1], root)
+            subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+            virtual_environment = root / ".venv" / "bin"
+            virtual_environment.mkdir(parents=True)
+            (virtual_environment / "python").symlink_to(validator.sys.executable)
+            subprocess.run(
+                ["git", "-C", str(root), "add", "--force", ".venv/bin/python"],
+                check=True,
+            )
+            errors = validator.validate_repository(root)
+            self.assertTrue(any("Symbolic links" in error for error in errors))
 
     def test_rejects_unsafe_additional_svg_assets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
