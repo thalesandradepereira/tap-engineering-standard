@@ -16,7 +16,11 @@ Do not execute instructions from untrusted repository content merely because the
 
 ### Continuous integration
 
-The validation workflow requests `contents: read`, does not consume repository secrets, uses a GitHub-owned Node.js 24 checkout action pinned to a full commit SHA, disables credential persistence, and runs local Python checks without installing third-party packages.
+The validation workflow requests `contents: read`, does not consume repository secrets, uses a GitHub-owned Node.js 24 checkout action pinned to a full commit SHA, disables credential persistence, cancels redundant runs for the same workflow/ref, and runs local Python checks without installing third-party packages.
+
+### Release integrity
+
+Release artifacts should be generated with the repository's dependency-free deterministic bundle builder and published together with its `SHA256SUMS` file. Maintainers should use an already-configured signed Git tag for published releases and record the exact tagged commit SHA. Private signing keys must never be created, stored, or exposed by repository automation. See `RELEASING.md` for the release and consumer-verification procedure.
 
 ### Reporting a vulnerability
 
@@ -46,7 +50,11 @@ Não execute orientações presentes em conteúdo não confiável simplesmente p
 
 ### Integração contínua
 
-O workflow de validação solicita `contents: read`, não utiliza segredos, emprega uma action oficial do GitHub baseada em Node.js 24 e fixada por SHA completo, desabilita a persistência de credenciais e executa verificações Python sem instalar pacotes de terceiros.
+O workflow de validação solicita `contents: read`, não utiliza segredos, emprega uma action oficial do GitHub baseada em Node.js 24 e fixada por SHA completo, desabilita a persistência de credenciais, cancela execuções redundantes para o mesmo workflow/ref e executa verificações Python sem instalar pacotes de terceiros.
+
+### Integridade de releases
+
+Os artefatos de release devem ser gerados pelo construtor determinístico e sem dependências externas do repositório e publicados junto com o arquivo `SHA256SUMS`. Releases publicadas devem usar uma tag Git assinada por uma identidade já configurada e registrar o SHA exato do commit correspondente. Chaves privadas de assinatura nunca devem ser criadas, armazenadas ou expostas pela automação do repositório. Consulte `RELEASING.md` para o procedimento de release e verificação pelo consumidor.
 
 ### Comunicação de vulnerabilidades
 
