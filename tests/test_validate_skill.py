@@ -142,6 +142,14 @@ class SkillBodyValidationTests(unittest.TestCase):
         errors = validator.validate_skill_body("<pre>\n" + hidden_markers + "\n</pre>\n")
         self.assertTrue(any("required safety guidance" in error for error in errors))
 
+    def test_rejects_safeguards_inside_incomplete_type_one_html_blocks(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        for tag in ("pre", "script", "style", "textarea"):
+            with self.subTest(tag=tag):
+                content = f"<{tag} class=x\n{hidden_markers}\n</{tag}>\n"
+                errors = validator.validate_skill_body(content)
+                self.assertTrue(any("required safety guidance" in error for error in errors))
+
     def test_rejects_safeguards_after_over_indented_fake_fence_closer(self) -> None:
         hidden_markers = "\n".join(self.markers)
         content = "```markdown\n    ```\n" + hidden_markers + "\n```\n"

@@ -193,6 +193,10 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
         r"<(?P<tag>pre|code|script|style|textarea)(?:[ \t][^<>]*)?>",
         re.IGNORECASE,
     )
+    type_one_html_block = re.compile(
+        r"^[ \t]{0,3}<(?P<tag>pre|script|style|textarea)(?=[ \t>]|$)",
+        re.IGNORECASE,
+    )
     commonmark_block_tag = re.compile(
         r"^[ \t]{0,3}</?(?:address|article|aside|base|basefont|blockquote|body|"
         r"caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|"
@@ -236,6 +240,13 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
             inline_code_delimiter,
         )
         if not raw_line.strip():
+            continue
+
+        type_one_opening = type_one_html_block.match(raw_line)
+        if type_one_opening is not None:
+            tag = type_one_opening.group("tag").lower()
+            if re.search(rf"</{re.escape(tag)}[ \t]*>", raw_line, re.IGNORECASE) is None:
+                opaque_html_tag = tag
             continue
 
         if commonmark_block_tag.match(raw_line) or complete_html_tag.match(raw_line):
