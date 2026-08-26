@@ -185,6 +185,7 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
     visible_lines: list[str] = []
     fence: tuple[str, int, int, int] | None = None
     inline_code_delimiter: int | None = None
+    list_container_active = False
     comment = False
     opaque_html_tag: str | None = None
     opaque_html_end: str | None = None
@@ -229,6 +230,17 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
             ):
                 fence = None
             continue
+
+        if not raw_line.strip():
+            inline_code_delimiter = None
+            list_container_active = False
+            continue
+
+        if re.match(
+            r"^[ \t]*(?:#{1,6}(?:[ \t]+|$)|(?:[-+*]|\d{1,9}[.)])[ \t]+|>[ \t]?)",
+            raw_line,
+        ):
+            inline_code_delimiter = None
 
         opening = opening_fence(raw_line) if not comment else None
         if opening is not None:
@@ -335,8 +347,24 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
         if opening is not None:
             fence = opening
             continue
+        nested_list = re.match(
+            r"^(?: {4,}|\t+)(?P<marker>[-+*]|\d{1,9}[.)])[ \t]+(?P<body>.+)$",
+            line,
+        )
+        if nested_list is not None and list_container_active:
+            visible_lines.append(
+                f"{nested_list.group('marker')} {nested_list.group('body')}"
+            )
+            continue
+
         if line and not re.match(r"^(?: {4}|\t)", line):
             visible_lines.append(line)
+            list_container_active = re.match(
+                r"^[ \t]{0,3}(?:[-+*]|\d{1,9}[.)])[ \t]+",
+                line,
+            ) is not None
+        elif line:
+            list_container_active = False
 
     return visible_lines
 
