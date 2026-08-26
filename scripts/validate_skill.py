@@ -344,39 +344,22 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
 def validate_safe_skill_markdown_subset(lines: list[str]) -> list[str]:
     """Reject executable-body markup whose visibility requires a full CommonMark parser."""
     errors: list[str] = []
-    inline_code_delimiter: int | None = None
     raw_html = re.compile(
         r"<(?:!--|\?|!\[CDATA\[|![A-Za-z]|/?[A-Za-z][A-Za-z0-9-]*(?=[ \t/>]|$))",
         re.IGNORECASE,
     )
-    block_raw_html = re.compile(
-        r"^[ \t]{0,3}(?:(?:[-+*]|\d{1,9}[.)])[ \t]+)*"
-        r"<(?:!--|\?|!\[CDATA\[|![A-Za-z]|/?[A-Za-z][A-Za-z0-9-]*(?=[ \t/>]|$))",
-        re.IGNORECASE,
-    )
-
     for raw_line in lines:
         if re.search(r"`{3,}|~{3,}", raw_line):
             errors.append(
                 "SKILL.md uses fenced code; keep code examples in referenced playbooks"
             )
-            inline_code_delimiter = None
-
-        if block_raw_html.search(raw_line):
-            errors.append(
-                "SKILL.md uses raw HTML; keep rich examples in documentation or playbooks"
-            )
-            inline_code_delimiter = None
-            continue
 
         if not raw_line.strip():
-            inline_code_delimiter = None
             continue
 
-        masked_line, inline_code_delimiter = mask_inline_code_spans(
-            raw_line,
-            inline_code_delimiter,
-        )
+        masked_line, unmatched_delimiter = mask_inline_code_spans(raw_line)
+        if unmatched_delimiter is not None:
+            masked_line = raw_line
         if raw_html.search(masked_line):
             errors.append(
                 "SKILL.md uses raw HTML; keep rich examples in documentation or playbooks"

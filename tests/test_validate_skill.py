@@ -220,6 +220,12 @@ class SkillBodyValidationTests(unittest.TestCase):
         errors = validator.validate_skill_body(content)
         self.assertTrue(any("raw HTML" in error for error in errors))
 
+    def test_rejects_indented_list_html_after_unmatched_backtick(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "text `\n- item\n    <script>`\n" + hidden_markers + "\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("raw HTML" in error for error in errors))
+
     def test_rejects_continuation_line_fence_in_list_item(self) -> None:
         hidden_markers = "\n".join(self.markers)
         content = "- item\n  ```markdown\n```\n" + hidden_markers + "\n```\n"
