@@ -100,10 +100,18 @@ def parse_frontmatter(content: str) -> dict[str, str]:
 
 def mask_inline_code_spans(line: str) -> str:
     """Mask complete backtick spans so literal Markdown syntax stays non-structural."""
+    def is_escaped(index: int) -> bool:
+        backslashes = 0
+        index -= 1
+        while index >= 0 and line[index] == "\\":
+            backslashes += 1
+            index -= 1
+        return backslashes % 2 == 1
+
     masked: list[str] = []
     position = 0
     while position < len(line):
-        if line[position] != "`":
+        if line[position] != "`" or is_escaped(position):
             masked.append(line[position])
             position += 1
             continue
@@ -112,8 +120,21 @@ def mask_inline_code_spans(line: str) -> str:
         while end < len(line) and line[end] == "`":
             end += 1
         delimiter = line[position:end]
-        closing = line.find(delimiter, end)
-        if closing == -1:
+        closing: int | None = None
+        candidate = end
+        while candidate < len(line):
+            if line[candidate] != "`" or is_escaped(candidate):
+                candidate += 1
+                continue
+            candidate_end = candidate + 1
+            while candidate_end < len(line) and line[candidate_end] == "`":
+                candidate_end += 1
+            if candidate_end - candidate == len(delimiter):
+                closing = candidate
+                break
+            candidate = candidate_end
+
+        if closing is None:
             masked.append(delimiter)
             position = end
             continue

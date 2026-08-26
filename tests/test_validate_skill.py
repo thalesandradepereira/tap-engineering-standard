@@ -140,6 +140,24 @@ class SkillBodyValidationTests(unittest.TestCase):
         )
         self.assertEqual(validator.validate_skill_body(content), [])
 
+    def test_accepts_inline_code_after_even_backslash_run(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "Two literal slashes precede inline code: \\\\`<!--`.\n\n"
+            "# TAP Engineering Standard\n",
+            1,
+        )
+        self.assertEqual(validator.validate_skill_body(content), [])
+
+    def test_rejects_comment_opener_between_escaped_backticks(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        hidden_guidance = "\n".join(
+            marker for marker in self.markers if not marker.startswith("#")
+        )
+        content = headings + "\n\\`<!--\\`\n" + hidden_guidance + "\n-->\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
     def test_accepts_unclosed_html_comment_inside_list_fenced_example(self) -> None:
         content = self.skill_text.replace(
             "# TAP Engineering Standard\n",
