@@ -53,8 +53,8 @@ REQUIRED_SKILL_BODY_MARKERS = (
 )
 
 
-def parse_frontmatter(content: str) -> dict[str, str]:
-    """Read the intentionally simple, two-field YAML frontmatter."""
+def split_frontmatter(content: str) -> tuple[list[str], list[str]]:
+    """Split metadata and instructions using one shared delimiter interpretation."""
     lines = content.splitlines()
     if not lines or lines[0].strip() != "---":
         raise ValueError("SKILL.md must begin with a YAML frontmatter delimiter")
@@ -66,8 +66,14 @@ def parse_frontmatter(content: str) -> dict[str, str]:
     except StopIteration as error:
         raise ValueError("SKILL.md frontmatter is missing its closing delimiter") from error
 
+    return lines[1:closing_index], lines[closing_index + 1 :]
+
+
+def parse_frontmatter(content: str) -> dict[str, str]:
+    """Read the intentionally simple, two-field YAML frontmatter."""
+    frontmatter_lines, body_lines = split_frontmatter(content)
     metadata: dict[str, str] = {}
-    for line in lines[1:closing_index]:
+    for line in frontmatter_lines:
         if not line.strip():
             continue
         key, separator, value = line.partition(":")
@@ -86,41 +92,344 @@ def parse_frontmatter(content: str) -> dict[str, str]:
     if missing:
         raise ValueError(f"Missing frontmatter fields: {', '.join(sorted(missing))}")
 
-    if not any(line.strip() for line in lines[closing_index + 1 :]):
+    if not any(line.strip() for line in body_lines):
         raise ValueError("SKILL.md must include an instruction body")
 
     return metadata
 
 
-def validate_skill_body(content: str) -> list[str]:
-    """Require the structural safeguards that define the published skill."""
-    body = re.sub(
-        r"\A---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|\Z)",
-        "",
-        content,
-        count=1,
-        flags=re.DOTALL,
+def mask_inline_code_spans(
+    line: str,
+    open_delimiter_length: int | None = None,
+) -> tuple[str, int | None]:
+    """Mask backtick spans, including spans whose matching run is on a later line."""
+    def is_escaped(index: int) -> bool:
+        backslashes = 0
+        index -= 1
+        while index >= 0 and line[index] == "\\":
+            backslashes += 1
+            index -= 1
+        return backslashes % 2 == 1
+
+    def backtick_run_end(start: int) -> int:
+        end = start + 1
+        while end < len(line) and line[end] == "`":
+            end += 1
+        return end
+
+    def matching_run(start: int, length: int) -> tuple[int, int] | None:
+        candidate = start
+        while candidate < len(line):
+            if line[candidate] != "`":
+                candidate += 1
+                continue
+            candidate_end = backtick_run_end(candidate)
+            if candidate_end - candidate == length:
+                return candidate, candidate_end
+            candidate = candidate_end
+        return None
+
+    masked: list[str] = []
+    position = 0
+    if open_delimiter_length is not None:
+        closing = matching_run(0, open_delimiter_length)
+        if closing is None:
+            return " " * len(line), open_delimiter_length
+        _, closing_end = closing
+        masked.append(" " * closing_end)
+        position = closing_end
+        open_delimiter_length = None
+
+    while position < len(line):
+        if line[position] != "`" or is_escaped(position):
+            masked.append(line[position])
+            position += 1
+            continue
+
+        end = backtick_run_end(position)
+        delimiter = line[position:end]
+        closing = matching_run(end, len(delimiter))
+        if closing is None:
+            masked.append(" " * (len(line) - position))
+            open_delimiter_length = len(delimiter)
+            break
+        _, closing_end = closing
+        masked.append(" " * (closing_end - position))
+        position = closing_end
+    return "".join(masked), open_delimiter_length
+
+
+def visible_markdown_lines(lines: list[str]) -> list[str]:
+    """Exclude real comments and fenced examples without confusing their contexts."""
+    top_level_fence = re.compile(
+        r"^(?P<prefix> {0,3})(?P<fence>`{3,}|~{3,})(?P<suffix>.*)$"
     )
-    body = re.sub(r"<!--.*?(?:-->|\Z)", "", body, flags=re.DOTALL)
+    list_fence = re.compile(
+        r"^(?P<prefix> {0,3}(?:(?:[-+*]|\d{1,9}[.)]) +)+)"
+        r"(?P<fence>`{3,}|~{3,})(?P<suffix>.*)$"
+    )
+
+    def opening_fence(line: str) -> tuple[str, int, int, int] | None:
+        match = list_fence.match(line)
+        if match is not None:
+            marker = match.group("fence")
+            content_indent = len(match.group("prefix"))
+            return marker[0], len(marker), content_indent, content_indent + 3
+
+        match = top_level_fence.match(line)
+        if match is None:
+            return None
+        marker = match.group("fence")
+        return marker[0], len(marker), 0, 3
 
     visible_lines: list[str] = []
-    fence: tuple[str, int] | None = None
-    for line in body.splitlines():
+    fence: tuple[str, int, int, int] | None = None
+    inline_code_delimiter: int | None = None
+    list_container_active = False
+    comment = False
+    opaque_html_tag: str | None = None
+    opaque_html_end: str | None = None
+    html_block_until_blank = False
+    opaque_html_open = re.compile(
+        r"<(?P<tag>pre|code|script|style|textarea)(?:[ \t][^<>]*)?>",
+        re.IGNORECASE,
+    )
+    type_one_html_block = re.compile(
+        r"^[ \t]{0,3}<(?P<tag>pre|script|style|textarea)(?=[ \t>]|$)",
+        re.IGNORECASE,
+    )
+    commonmark_block_tag = re.compile(
+        r"^[ \t]{0,3}</?(?:address|article|aside|base|basefont|blockquote|body|"
+        r"caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|"
+        r"figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|"
+        r"html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|"
+        r"optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|"
+        r"th|thead|title|tr|track|ul)(?=[ \t\n/>])",
+        re.IGNORECASE,
+    )
+    complete_html_tag = re.compile(
+        r"^[ \t]{0,3}</?[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[^<>]*)?/?"
+        r">[ \t]*$"
+    )
+
+    for raw_line in lines:
+        if html_block_until_blank:
+            if not raw_line.strip():
+                html_block_until_blank = False
+            continue
+
         if fence is not None:
-            character, length = fence
-            if re.fullmatch(rf"[ \t]{{0,3}}{re.escape(character)}{{{length},}}[ \t]*", line):
+            character, length, minimum_indent, maximum_indent = fence
+            closing = re.fullmatch(
+                rf"(?P<indent> *)(?P<fence>{re.escape(character)}{{{length},}})[ \t]*",
+                raw_line,
+            )
+            if (
+                closing is not None
+                and minimum_indent <= len(closing.group("indent")) <= maximum_indent
+            ):
                 fence = None
             continue
 
-        fence_match = re.match(r"^[ \t]{0,3}(`{3,}|~{3,})", line)
-        if fence_match is not None:
-            opening = fence_match.group(1)
-            fence = (opening[0], len(opening))
+        if not raw_line.strip():
+            inline_code_delimiter = None
+            list_container_active = False
             continue
-        visible_lines.append(line)
 
-    visible_body = "\n".join(visible_lines)
+        if re.match(
+            r"^[ \t]*(?:#{1,6}(?:[ \t]+|$)|(?:[-+*]|\d{1,9}[.)])[ \t]+|>[ \t]?)",
+            raw_line,
+        ):
+            inline_code_delimiter = None
+
+        opening = opening_fence(raw_line) if not comment else None
+        if opening is not None:
+            fence = opening
+            continue
+
+        raw_line, inline_code_delimiter = mask_inline_code_spans(
+            raw_line,
+            inline_code_delimiter,
+        )
+        if not raw_line.strip():
+            continue
+
+        type_one_opening = type_one_html_block.match(raw_line)
+        if type_one_opening is not None:
+            tag = type_one_opening.group("tag").lower()
+            if re.search(rf"</{re.escape(tag)}[ \t]*>", raw_line, re.IGNORECASE) is None:
+                opaque_html_tag = tag
+            continue
+
+        if commonmark_block_tag.match(raw_line) or complete_html_tag.match(raw_line):
+            html_block_until_blank = True
+            continue
+
+        fragments: list[str] = []
+        position = 0
+        while position < len(raw_line):
+            if comment:
+                closing_position = raw_line.find("-->", position)
+                if closing_position == -1:
+                    position = len(raw_line)
+                    break
+                comment = False
+                position = closing_position + 3
+                continue
+
+            if opaque_html_tag is not None:
+                closing_tag = re.search(
+                    rf"</{re.escape(opaque_html_tag)}[ \t]*>",
+                    raw_line[position:],
+                    re.IGNORECASE,
+                )
+                if closing_tag is None:
+                    position = len(raw_line)
+                    break
+                opaque_html_tag = None
+                position += closing_tag.end()
+                continue
+
+            if opaque_html_end is not None:
+                closing_position = raw_line.find(opaque_html_end, position)
+                if closing_position == -1:
+                    position = len(raw_line)
+                    break
+                position = closing_position + len(opaque_html_end)
+                opaque_html_end = None
+                continue
+
+            opening_position = raw_line.find("<!--", position)
+            html_opening = opaque_html_open.search(raw_line, position)
+            html_position = html_opening.start() if html_opening is not None else -1
+            opaque_openings = (
+                (raw_line.find("<![CDATA[", position), "]]>") ,
+                (raw_line.find("<?", position), "?>"),
+            )
+            declaration = re.search(r"<![A-Za-z]", raw_line[position:])
+            declaration_position = (
+                position + declaration.start() if declaration is not None else -1
+            )
+            candidates = [
+                candidate
+                for candidate in (
+                    opening_position,
+                    html_position,
+                    declaration_position,
+                    *(candidate for candidate, _ in opaque_openings),
+                )
+                if candidate >= 0
+            ]
+            if not candidates:
+                fragments.append(raw_line[position:])
+                break
+            next_position = min(candidates)
+            fragments.append(raw_line[position:next_position])
+            if opening_position == next_position:
+                position = opening_position + 4
+                comment = True
+            elif declaration_position == next_position:
+                position = declaration_position + 2
+                opaque_html_end = ">"
+            elif any(candidate == next_position for candidate, _ in opaque_openings):
+                candidate, terminator = next(
+                    item for item in opaque_openings if item[0] == next_position
+                )
+                position = candidate + (9 if terminator == "]]>" else 2)
+                opaque_html_end = terminator
+            else:
+                assert html_opening is not None
+                opaque_html_tag = html_opening.group("tag").lower()
+                position = html_opening.end()
+
+        line = "".join(fragments)
+        opening = opening_fence(line) if not comment else None
+        if opening is not None:
+            fence = opening
+            continue
+        nested_list = re.match(
+            r"^(?: {4,}|\t+)(?P<marker>[-+*]|\d{1,9}[.)])[ \t]+(?P<body>.+)$",
+            line,
+        )
+        if nested_list is not None and list_container_active:
+            visible_lines.append(
+                f"{nested_list.group('marker')} {nested_list.group('body')}"
+            )
+            continue
+
+        if line and not re.match(r"^(?: {4}|\t)", line):
+            visible_lines.append(line)
+            list_container_active = re.match(
+                r"^[ \t]{0,3}(?:[-+*]|\d{1,9}[.)])[ \t]+",
+                line,
+            ) is not None
+        elif line:
+            list_container_active = False
+
+    return visible_lines
+
+
+def validate_safe_skill_markdown_subset(lines: list[str]) -> list[str]:
+    """Reject executable-body markup whose visibility requires a full CommonMark parser."""
     errors: list[str] = []
+    raw_html = re.compile(
+        r"<(?:!--|\?|!\[CDATA\[|![A-Za-z]|/?[A-Za-z][A-Za-z0-9-]*(?=[ \t/>]|$))",
+        re.IGNORECASE,
+    )
+    list_item = re.compile(
+        r"^ {0,3}(?:[-+*]|\d{1,9}[.)])(?P<spacing>[ \t]+)"
+    )
+    for raw_line in lines:
+        if re.search(r"`{3,}|~{3,}", raw_line):
+            errors.append(
+                "SKILL.md uses fenced code; keep code examples in referenced playbooks"
+            )
+
+        if not raw_line.strip():
+            continue
+
+        if re.match(r"^(?: {4,}| {0,3}\t)", raw_line):
+            errors.append(
+                "SKILL.md uses deep indentation; keep executable guidance at top level "
+                "or in a single-level list"
+            )
+
+        list_match = list_item.match(raw_line)
+        if list_match is not None:
+            spacing = list_match.group("spacing")
+            if "\t" in spacing or len(spacing) > 4:
+                errors.append(
+                    "SKILL.md uses unsafe list indentation; use one to four spaces "
+                    "after a list marker"
+                )
+
+        masked_line, unmatched_delimiter = mask_inline_code_spans(raw_line)
+        if unmatched_delimiter is not None:
+            masked_line = raw_line
+            errors.append(
+                "SKILL.md uses unmatched or multiline inline code; keep each code span "
+                "on one line"
+            )
+        if raw_html.search(masked_line):
+            errors.append(
+                "SKILL.md uses raw HTML; keep rich examples in documentation or playbooks"
+            )
+
+    return list(dict.fromkeys(errors))
+
+
+def validate_skill_body(content: str) -> list[str]:
+    """Require the structural safeguards that define the published skill."""
+    lines = content.splitlines()
+    if lines and lines[0].strip() == "---":
+        try:
+            _, lines = split_frontmatter(content)
+        except ValueError:
+            lines = []
+
+    subset_errors = validate_safe_skill_markdown_subset(lines)
+    visible_body = "\n".join(visible_markdown_lines(lines))
+    errors: list[str] = list(subset_errors)
     for marker in REQUIRED_SKILL_BODY_MARKERS:
         if marker.startswith("#"):
             found = re.search(
@@ -129,7 +438,12 @@ def validate_skill_body(content: str) -> list[str]:
                 re.MULTILINE,
             ) is not None
         else:
-            found = marker in visible_body
+            found = re.search(
+                rf"^ {{0,3}}(?:(?:[-+*]|\d{{1,9}}[.)]) {{1,4}})?"
+                rf"{re.escape(marker)}(?=$|[ \t,.;:])",
+                visible_body,
+                re.MULTILINE,
+            ) is not None
         if not found:
             errors.append(f"SKILL.md is missing required safety guidance: {marker}")
     return errors

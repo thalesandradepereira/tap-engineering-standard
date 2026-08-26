@@ -24,6 +24,13 @@ class FrontmatterValidationTests(unittest.TestCase):
         )
         self.assertEqual(metadata["name"], "tap-engineering-standard")
 
+    def test_accepts_indented_frontmatter_delimiters(self) -> None:
+        metadata = validator.parse_frontmatter(
+            "  ---\nname: tap-engineering-standard\n"
+            "description: Useful engineering instructions\n\t---\n# Body\n"
+        )
+        self.assertEqual(metadata["name"], "tap-engineering-standard")
+
     def test_rejects_missing_delimiter(self) -> None:
         with self.assertRaisesRegex(ValueError, "must begin"):
             validator.parse_frontmatter("name: example\n")
@@ -57,6 +64,232 @@ class FrontmatterValidationTests(unittest.TestCase):
             validator.parse_frontmatter(
                 "---\nname: example\ndescription: example\nauthor: someone\n---\n# Body\n"
             )
+
+
+class SkillBodyValidationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        skill_path = MODULE_PATH.parents[1] / "skills" / validator.SKILL_NAME / "SKILL.md"
+        self.skill_text = skill_path.read_text(encoding="utf-8")
+        self.markers = list(validator.REQUIRED_SKILL_BODY_MARKERS)
+
+    def test_rejects_safeguards_inside_bullet_list_fence(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "- ```markdown\n" + hidden_markers + "\n  ```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("fenced code" in error for error in errors))
+
+    def test_rejects_safeguards_inside_ordered_list_fence(self) -> None:
+        hidden_markers = "\n".join("   " + marker for marker in self.markers)
+        content = "1. ```markdown\n" + hidden_markers + "\n   ```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_bullet_list_tilde_fence(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "- ~~~markdown\n" + hidden_markers + "\n  ~~~\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_guidance_inside_indented_code(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        hidden_guidance = "\n".join(
+            "    " + marker for marker in self.markers if not marker.startswith("#")
+        )
+        errors = validator.validate_skill_body(headings + "\n\n" + hidden_guidance + "\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_guidance_inside_inline_code(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        hidden_guidance = "\n".join(
+            "`" + marker + "`" for marker in self.markers if not marker.startswith("#")
+        )
+        errors = validator.validate_skill_body(headings + "\n" + hidden_guidance + "\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_guidance_inside_multiline_inline_code(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        hidden_guidance = "\n".join(
+            marker for marker in self.markers if not marker.startswith("#")
+        )
+        content = headings + "\n`\n" + hidden_guidance + "\n`\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_processing_instruction(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body("<?hidden\n" + hidden_markers + "\n?>\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_cdata_block(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body(
+            "<![CDATA[\n" + hidden_markers + "\n]]>\n"
+        )
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_html_declaration(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body("<!HIDDEN\n" + hidden_markers + "\n>\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_blank_terminated_html_block(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body("<div>\n" + hidden_markers + "\n</div>\n\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_html_preformatted_code(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body("<pre>\n" + hidden_markers + "\n</pre>\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_incomplete_type_one_html_blocks(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        for tag in ("pre", "script", "style", "textarea"):
+            with self.subTest(tag=tag):
+                content = f"<{tag} class=x\n{hidden_markers}\n</{tag}>\n"
+                errors = validator.validate_skill_body(content)
+                self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_after_over_indented_fake_fence_closer(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        content = "```markdown\n    ```\n" + hidden_markers + "\n```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_after_invalid_list_fence_closer(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "- ```markdown\n      ```\n" + hidden_markers + "\n  ```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_fenced_example_with_unclosed_html_comment(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "```html\n<!-- illustrative unclosed comment\n```\n\n"
+            "# TAP Engineering Standard\n",
+            1,
+        )
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("fenced code" in error for error in errors))
+
+    def test_accepts_html_comment_delimiter_inside_inline_code(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "An HTML comment opens with `<!--`.\n\n# TAP Engineering Standard\n",
+            1,
+        )
+        self.assertEqual(validator.validate_skill_body(content), [])
+
+    def test_accepts_inline_code_after_even_backslash_run(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "Two literal slashes precede inline code: \\\\`<!--`.\n\n"
+            "# TAP Engineering Standard\n",
+            1,
+        )
+        self.assertEqual(validator.validate_skill_body(content), [])
+
+    def test_accepts_backslash_before_inline_code_closer(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "The literal sequence is `<!--\\`.\n\n# TAP Engineering Standard\n",
+            1,
+        )
+        self.assertEqual(validator.validate_skill_body(content), [])
+
+    def test_rejects_unmatched_backticks_separated_by_blank_line(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "An unmatched literal ` ends this paragraph.\n\n"
+            "# TAP Engineering Standard\n",
+            1,
+        ) + "\nA later paragraph contains another literal `.\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("unmatched or multiline inline code" in error for error in errors))
+
+    def test_rejects_required_guidance_in_nested_list_items(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        guidance = "\n".join(
+            "    - " + marker for marker in self.markers if not marker.startswith("#")
+        )
+        content = headings + "\n- safeguards:\n" + guidance + "\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("deep indentation" in error for error in errors))
+
+    def test_rejects_ordered_markers_inside_multiline_code_span(self) -> None:
+        hidden_markers = "\n".join("2. " + marker for marker in self.markers)
+        content = "opening `\n" + hidden_markers + "\nclosing `\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("unmatched or multiline inline code" in error for error in errors))
+
+    def test_rejects_deeply_indented_list_paragraph_guidance(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        guidance = "\n".join(
+            "    " + marker for marker in self.markers if not marker.startswith("#")
+        )
+        content = headings + "\n- safeguards:\n" + guidance + "\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("deep indentation" in error for error in errors))
+
+    def test_rejects_comment_opener_between_escaped_backticks(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        hidden_guidance = "\n".join(
+            marker for marker in self.markers if not marker.startswith("#")
+        )
+        content = headings + "\n\\`<!--\\`\n" + hidden_guidance + "\n-->\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_list_fenced_example_with_unclosed_html_comment(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "- ```html\n  <!-- illustrative unclosed comment\n  ```\n\n"
+            "# TAP Engineering Standard\n",
+            1,
+        )
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("fenced code" in error for error in errors))
+
+    def test_rejects_html_block_nested_in_list_item(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "- <div>\n" + hidden_markers + "\n  </div>\n\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("raw HTML" in error for error in errors))
+
+    def test_rejects_html_block_after_unmatched_backtick_paragraph(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        content = "text `\n<script>`\n" + hidden_markers + "\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("raw HTML" in error for error in errors))
+
+    def test_rejects_indented_list_html_after_unmatched_backtick(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "text `\n- item\n    <script>`\n" + hidden_markers + "\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("raw HTML" in error for error in errors))
+
+    def test_rejects_continuation_line_fence_in_list_item(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        content = "- item\n  ```markdown\n```\n" + hidden_markers + "\n```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("fenced code" in error for error in errors))
+
+    def test_rejects_markers_inside_real_comment_after_fenced_example(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        content = "```html\n<!-- illustrative\n```\n<!--\n" + hidden_markers + "\n-->\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_guidance_present_only_in_indented_frontmatter(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        guidance = " ".join(marker for marker in self.markers if not marker.startswith("#"))
+        content = (
+            " \t---\nname: tap-engineering-standard\n"
+            f"description: {guidance}\n  ---\n{headings}\n"
+        )
+        validator.parse_frontmatter(content)
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
 
 
 class SvgValidationTests(unittest.TestCase):
