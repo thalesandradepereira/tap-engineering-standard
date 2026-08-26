@@ -341,6 +341,33 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
     return visible_lines
 
 
+def validate_safe_skill_markdown_subset(lines: list[str]) -> list[str]:
+    """Reject executable-body markup whose visibility requires a full CommonMark parser."""
+    errors: list[str] = []
+    inline_code_delimiter: int | None = None
+    raw_html = re.compile(
+        r"<(?:!--|\?|!\[CDATA\[|![A-Za-z]|/?[A-Za-z][A-Za-z0-9-]*(?=[ \t/>]|$))",
+        re.IGNORECASE,
+    )
+
+    for raw_line in lines:
+        if re.search(r"`{3,}|~{3,}", raw_line):
+            errors.append(
+                "SKILL.md uses fenced code; keep code examples in referenced playbooks"
+            )
+
+        masked_line, inline_code_delimiter = mask_inline_code_spans(
+            raw_line,
+            inline_code_delimiter,
+        )
+        if raw_html.search(masked_line):
+            errors.append(
+                "SKILL.md uses raw HTML; keep rich examples in documentation or playbooks"
+            )
+
+    return list(dict.fromkeys(errors))
+
+
 def validate_skill_body(content: str) -> list[str]:
     """Require the structural safeguards that define the published skill."""
     lines = content.splitlines()
@@ -350,8 +377,9 @@ def validate_skill_body(content: str) -> list[str]:
         except ValueError:
             lines = []
 
+    subset_errors = validate_safe_skill_markdown_subset(lines)
     visible_body = "\n".join(visible_markdown_lines(lines))
-    errors: list[str] = []
+    errors: list[str] = list(subset_errors)
     for marker in REQUIRED_SKILL_BODY_MARKERS:
         if marker.startswith("#"):
             found = re.search(

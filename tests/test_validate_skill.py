@@ -76,7 +76,7 @@ class SkillBodyValidationTests(unittest.TestCase):
         hidden_markers = "\n".join("  " + marker for marker in self.markers)
         content = "- ```markdown\n" + hidden_markers + "\n  ```\n"
         errors = validator.validate_skill_body(content)
-        self.assertTrue(any("required safety guidance" in error for error in errors))
+        self.assertTrue(any("fenced code" in error for error in errors))
 
     def test_rejects_safeguards_inside_ordered_list_fence(self) -> None:
         hidden_markers = "\n".join("   " + marker for marker in self.markers)
@@ -162,14 +162,15 @@ class SkillBodyValidationTests(unittest.TestCase):
         errors = validator.validate_skill_body(content)
         self.assertTrue(any("required safety guidance" in error for error in errors))
 
-    def test_accepts_unclosed_html_comment_inside_fenced_example(self) -> None:
+    def test_rejects_fenced_example_with_unclosed_html_comment(self) -> None:
         content = self.skill_text.replace(
             "# TAP Engineering Standard\n",
             "```html\n<!-- illustrative unclosed comment\n```\n\n"
             "# TAP Engineering Standard\n",
             1,
         )
-        self.assertEqual(validator.validate_skill_body(content), [])
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("fenced code" in error for error in errors))
 
     def test_accepts_html_comment_delimiter_inside_inline_code(self) -> None:
         content = self.skill_text.replace(
@@ -197,14 +198,27 @@ class SkillBodyValidationTests(unittest.TestCase):
         errors = validator.validate_skill_body(content)
         self.assertTrue(any("required safety guidance" in error for error in errors))
 
-    def test_accepts_unclosed_html_comment_inside_list_fenced_example(self) -> None:
+    def test_rejects_list_fenced_example_with_unclosed_html_comment(self) -> None:
         content = self.skill_text.replace(
             "# TAP Engineering Standard\n",
             "- ```html\n  <!-- illustrative unclosed comment\n  ```\n\n"
             "# TAP Engineering Standard\n",
             1,
         )
-        self.assertEqual(validator.validate_skill_body(content), [])
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("fenced code" in error for error in errors))
+
+    def test_rejects_html_block_nested_in_list_item(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "- <div>\n" + hidden_markers + "\n  </div>\n\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("raw HTML" in error for error in errors))
+
+    def test_rejects_continuation_line_fence_in_list_item(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        content = "- item\n  ```markdown\n```\n" + hidden_markers + "\n```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("fenced code" in error for error in errors))
 
     def test_rejects_markers_inside_real_comment_after_fenced_example(self) -> None:
         hidden_markers = "\n".join(self.markers)
