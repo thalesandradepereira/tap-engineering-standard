@@ -56,6 +56,16 @@ class ReleaseBundleTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Symbolic links are not allowed"):
                 build_release_bundle(fake_root, fake_root / "dist")
 
+    def test_release_builder_rejects_output_inside_skill_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fake_root = Path(temporary_directory)
+            fake_skill = fake_root / SKILL_RELATIVE_DIR
+            fake_skill.mkdir(parents=True)
+            (fake_skill / "SKILL.md").write_text("safe\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "must be outside"):
+                build_release_bundle(fake_root, fake_skill / "dist")
+
 
 if __name__ == "__main__":
     unittest.main()
