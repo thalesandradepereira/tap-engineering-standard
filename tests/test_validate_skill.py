@@ -189,6 +189,14 @@ class SkillBodyValidationTests(unittest.TestCase):
         )
         self.assertEqual(validator.validate_skill_body(content), [])
 
+    def test_accepts_backslash_before_inline_code_closer(self) -> None:
+        content = self.skill_text.replace(
+            "# TAP Engineering Standard\n",
+            "The literal sequence is `<!--\\`.\n\n# TAP Engineering Standard\n",
+            1,
+        )
+        self.assertEqual(validator.validate_skill_body(content), [])
+
     def test_rejects_comment_opener_between_escaped_backticks(self) -> None:
         headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
         hidden_guidance = "\n".join(

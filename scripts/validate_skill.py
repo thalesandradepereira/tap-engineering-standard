@@ -120,7 +120,7 @@ def mask_inline_code_spans(
     def matching_run(start: int, length: int) -> tuple[int, int] | None:
         candidate = start
         while candidate < len(line):
-            if line[candidate] != "`" or is_escaped(candidate):
+            if line[candidate] != "`":
                 candidate += 1
                 continue
             candidate_end = backtick_run_end(candidate)
