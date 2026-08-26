@@ -376,6 +376,9 @@ def validate_safe_skill_markdown_subset(lines: list[str]) -> list[str]:
         r"<(?:!--|\?|!\[CDATA\[|![A-Za-z]|/?[A-Za-z][A-Za-z0-9-]*(?=[ \t/>]|$))",
         re.IGNORECASE,
     )
+    list_item = re.compile(
+        r"^ {0,3}(?:[-+*]|\d{1,9}[.)])(?P<spacing>[ \t]+)"
+    )
     for raw_line in lines:
         if re.search(r"`{3,}|~{3,}", raw_line):
             errors.append(
@@ -385,11 +388,20 @@ def validate_safe_skill_markdown_subset(lines: list[str]) -> list[str]:
         if not raw_line.strip():
             continue
 
-        if re.match(r"^(?: {4,}|\t)", raw_line):
+        if re.match(r"^(?: {4,}| {0,3}\t)", raw_line):
             errors.append(
                 "SKILL.md uses deep indentation; keep executable guidance at top level "
                 "or in a single-level list"
             )
+
+        list_match = list_item.match(raw_line)
+        if list_match is not None:
+            spacing = list_match.group("spacing")
+            if "\t" in spacing or len(spacing) > 4:
+                errors.append(
+                    "SKILL.md uses unsafe list indentation; use one to four spaces "
+                    "after a list marker"
+                )
 
         masked_line, unmatched_delimiter = mask_inline_code_spans(raw_line)
         if unmatched_delimiter is not None:
@@ -427,7 +439,7 @@ def validate_skill_body(content: str) -> list[str]:
             ) is not None
         else:
             found = re.search(
-                rf"^[ \t]{{0,3}}(?:(?:[-+*]|\d{{1,9}}[.)])[ \t]+)?"
+                rf"^ {{0,3}}(?:(?:[-+*]|\d{{1,9}}[.)]) {{1,4}})?"
                 rf"{re.escape(marker)}(?=$|[ \t,.;:])",
                 visible_body,
                 re.MULTILINE,
