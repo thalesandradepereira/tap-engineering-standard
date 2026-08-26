@@ -197,22 +197,39 @@ class SkillBodyValidationTests(unittest.TestCase):
         )
         self.assertEqual(validator.validate_skill_body(content), [])
 
-    def test_accepts_unmatched_backticks_separated_by_blank_line(self) -> None:
+    def test_rejects_unmatched_backticks_separated_by_blank_line(self) -> None:
         content = self.skill_text.replace(
             "# TAP Engineering Standard\n",
             "An unmatched literal ` ends this paragraph.\n\n"
             "# TAP Engineering Standard\n",
             1,
         ) + "\nA later paragraph contains another literal `.\n"
-        self.assertEqual(validator.validate_skill_body(content), [])
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("unmatched or multiline inline code" in error for error in errors))
 
-    def test_accepts_required_guidance_in_nested_list_items(self) -> None:
+    def test_rejects_required_guidance_in_nested_list_items(self) -> None:
         headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
         guidance = "\n".join(
             "    - " + marker for marker in self.markers if not marker.startswith("#")
         )
         content = headings + "\n- safeguards:\n" + guidance + "\n"
-        self.assertEqual(validator.validate_skill_body(content), [])
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("deep indentation" in error for error in errors))
+
+    def test_rejects_ordered_markers_inside_multiline_code_span(self) -> None:
+        hidden_markers = "\n".join("2. " + marker for marker in self.markers)
+        content = "opening `\n" + hidden_markers + "\nclosing `\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("unmatched or multiline inline code" in error for error in errors))
+
+    def test_rejects_deeply_indented_list_paragraph_guidance(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        guidance = "\n".join(
+            "    " + marker for marker in self.markers if not marker.startswith("#")
+        )
+        content = headings + "\n- safeguards:\n" + guidance + "\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("deep indentation" in error for error in errors))
 
     def test_rejects_comment_opener_between_escaped_backticks(self) -> None:
         headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))

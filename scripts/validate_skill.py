@@ -385,9 +385,19 @@ def validate_safe_skill_markdown_subset(lines: list[str]) -> list[str]:
         if not raw_line.strip():
             continue
 
+        if re.match(r"^(?: {4,}|\t)", raw_line):
+            errors.append(
+                "SKILL.md uses deep indentation; keep executable guidance at top level "
+                "or in a single-level list"
+            )
+
         masked_line, unmatched_delimiter = mask_inline_code_spans(raw_line)
         if unmatched_delimiter is not None:
             masked_line = raw_line
+            errors.append(
+                "SKILL.md uses unmatched or multiline inline code; keep each code span "
+                "on one line"
+            )
         if raw_html.search(masked_line):
             errors.append(
                 "SKILL.md uses raw HTML; keep rich examples in documentation or playbooks"
