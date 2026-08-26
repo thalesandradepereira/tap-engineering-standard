@@ -11,6 +11,9 @@ Thank you for improving TAP Engineering Standard. Keep contributions focused, re
 5. Update English and Brazilian Portuguese documentation together when user-facing behavior changes.
 6. Run `python3 scripts/validate_skill.py` and `python3 -m unittest discover -s tests -v`.
 7. Submit a pull request describing the change, rationale, verification, and security impact.
+8. For release-facing changes, also run `python3 scripts/build_release_bundle.py` and follow `RELEASING.md`.
+
+Security-sensitive changes should receive independent human review before release when a second trusted maintainer is available. Do not configure a required CODEOWNERS approval around an invented, inactive, or unavailable reviewer; add and enforce that control only after a real second maintainer has accepted the responsibility.
 
 Use responsible disclosure for security issues. Do not include credentials, private source code, or personal data in public contributions.
 
@@ -25,5 +28,8 @@ Obrigado por contribuir com o TAP Engineering Standard. Mantenha as alterações
 5. Atualize simultaneamente a documentação em inglês e português quando houver mudança perceptível para o usuário.
 6. Execute `python3 scripts/validate_skill.py` e `python3 -m unittest discover -s tests -v`.
 7. Envie um pull request descrevendo a alteração, a justificativa, os testes executados e os impactos de segurança.
+8. Para alterações relacionadas a release, execute também `python3 scripts/build_release_bundle.py` e siga `RELEASING.md`.
+
+Alterações sensíveis à segurança devem receber revisão humana independente antes da release quando houver um segundo mantenedor confiável disponível. Não configure aprovação obrigatória via CODEOWNERS apontando para um revisor inventado, inativo ou indisponível; adicione e torne esse controle obrigatório somente depois que um segundo mantenedor real aceitar essa responsabilidade.
 
 Utilize divulgação responsável para problemas de segurança. Não inclua credenciais, código privado ou dados pessoais em contribuições públicas.
