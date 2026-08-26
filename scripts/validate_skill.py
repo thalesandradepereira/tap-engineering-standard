@@ -98,8 +98,11 @@ def parse_frontmatter(content: str) -> dict[str, str]:
     return metadata
 
 
-def mask_inline_code_spans(line: str) -> str:
-    """Mask complete backtick spans so literal Markdown syntax stays non-structural."""
+def mask_inline_code_spans(
+    line: str,
+    open_delimiter_length: int | None = None,
+) -> tuple[str, int | None]:
+    """Mask backtick spans, including spans whose matching run is on a later line."""
     def is_escaped(index: int) -> bool:
         backslashes = 0
         index -= 1
@@ -108,39 +111,52 @@ def mask_inline_code_spans(line: str) -> str:
             index -= 1
         return backslashes % 2 == 1
 
+    def backtick_run_end(start: int) -> int:
+        end = start + 1
+        while end < len(line) and line[end] == "`":
+            end += 1
+        return end
+
+    def matching_run(start: int, length: int) -> tuple[int, int] | None:
+        candidate = start
+        while candidate < len(line):
+            if line[candidate] != "`" or is_escaped(candidate):
+                candidate += 1
+                continue
+            candidate_end = backtick_run_end(candidate)
+            if candidate_end - candidate == length:
+                return candidate, candidate_end
+            candidate = candidate_end
+        return None
+
     masked: list[str] = []
     position = 0
+    if open_delimiter_length is not None:
+        closing = matching_run(0, open_delimiter_length)
+        if closing is None:
+            return " " * len(line), open_delimiter_length
+        _, closing_end = closing
+        masked.append(" " * closing_end)
+        position = closing_end
+        open_delimiter_length = None
+
     while position < len(line):
         if line[position] != "`" or is_escaped(position):
             masked.append(line[position])
             position += 1
             continue
 
-        end = position + 1
-        while end < len(line) and line[end] == "`":
-            end += 1
+        end = backtick_run_end(position)
         delimiter = line[position:end]
-        closing: int | None = None
-        candidate = end
-        while candidate < len(line):
-            if line[candidate] != "`" or is_escaped(candidate):
-                candidate += 1
-                continue
-            candidate_end = candidate + 1
-            while candidate_end < len(line) and line[candidate_end] == "`":
-                candidate_end += 1
-            if candidate_end - candidate == len(delimiter):
-                closing = candidate
-                break
-            candidate = candidate_end
-
+        closing = matching_run(end, len(delimiter))
         if closing is None:
-            masked.append(delimiter)
-            position = end
-            continue
-        masked.append(" " * (closing + len(delimiter) - position))
-        position = closing + len(delimiter)
-    return "".join(masked)
+            masked.append(" " * (len(line) - position))
+            open_delimiter_length = len(delimiter)
+            break
+        _, closing_end = closing
+        masked.append(" " * (closing_end - position))
+        position = closing_end
+    return "".join(masked), open_delimiter_length
 
 
 def visible_markdown_lines(lines: list[str]) -> list[str]:
@@ -168,14 +184,35 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
 
     visible_lines: list[str] = []
     fence: tuple[str, int, int, int] | None = None
+    inline_code_delimiter: int | None = None
     comment = False
     opaque_html_tag: str | None = None
+    opaque_html_end: str | None = None
+    html_block_until_blank = False
     opaque_html_open = re.compile(
         r"<(?P<tag>pre|code|script|style|textarea)(?:[ \t][^<>]*)?>",
         re.IGNORECASE,
     )
+    commonmark_block_tag = re.compile(
+        r"^[ \t]{0,3}</?(?:address|article|aside|base|basefont|blockquote|body|"
+        r"caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|"
+        r"figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|"
+        r"html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|"
+        r"optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|"
+        r"th|thead|title|tr|track|ul)(?=[ \t\n/>])",
+        re.IGNORECASE,
+    )
+    complete_html_tag = re.compile(
+        r"^[ \t]{0,3}</?[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[^<>]*)?/?"
+        r">[ \t]*$"
+    )
 
     for raw_line in lines:
+        if html_block_until_blank:
+            if not raw_line.strip():
+                html_block_until_blank = False
+            continue
+
         if fence is not None:
             character, length, minimum_indent, maximum_indent = fence
             closing = re.fullmatch(
@@ -194,7 +231,17 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
             fence = opening
             continue
 
-        raw_line = mask_inline_code_spans(raw_line)
+        raw_line, inline_code_delimiter = mask_inline_code_spans(
+            raw_line,
+            inline_code_delimiter,
+        )
+        if not raw_line.strip():
+            continue
+
+        if commonmark_block_tag.match(raw_line) or complete_html_tag.match(raw_line):
+            html_block_until_blank = True
+            continue
+
         fragments: list[str] = []
         position = 0
         while position < len(raw_line):
@@ -220,10 +267,36 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
                 position += closing_tag.end()
                 continue
 
+            if opaque_html_end is not None:
+                closing_position = raw_line.find(opaque_html_end, position)
+                if closing_position == -1:
+                    position = len(raw_line)
+                    break
+                position = closing_position + len(opaque_html_end)
+                opaque_html_end = None
+                continue
+
             opening_position = raw_line.find("<!--", position)
             html_opening = opaque_html_open.search(raw_line, position)
             html_position = html_opening.start() if html_opening is not None else -1
-            candidates = [candidate for candidate in (opening_position, html_position) if candidate >= 0]
+            opaque_openings = (
+                (raw_line.find("<![CDATA[", position), "]]>") ,
+                (raw_line.find("<?", position), "?>"),
+            )
+            declaration = re.search(r"<![A-Za-z]", raw_line[position:])
+            declaration_position = (
+                position + declaration.start() if declaration is not None else -1
+            )
+            candidates = [
+                candidate
+                for candidate in (
+                    opening_position,
+                    html_position,
+                    declaration_position,
+                    *(candidate for candidate, _ in opaque_openings),
+                )
+                if candidate >= 0
+            ]
             if not candidates:
                 fragments.append(raw_line[position:])
                 break
@@ -232,6 +305,15 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
             if opening_position == next_position:
                 position = opening_position + 4
                 comment = True
+            elif declaration_position == next_position:
+                position = declaration_position + 2
+                opaque_html_end = ">"
+            elif any(candidate == next_position for candidate, _ in opaque_openings):
+                candidate, terminator = next(
+                    item for item in opaque_openings if item[0] == next_position
+                )
+                position = candidate + (9 if terminator == "]]>" else 2)
+                opaque_html_end = terminator
             else:
                 assert html_opening is not None
                 opaque_html_tag = html_opening.group("tag").lower()

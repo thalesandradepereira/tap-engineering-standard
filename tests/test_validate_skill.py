@@ -106,6 +106,37 @@ class SkillBodyValidationTests(unittest.TestCase):
         errors = validator.validate_skill_body(headings + "\n" + hidden_guidance + "\n")
         self.assertTrue(any("required safety guidance" in error for error in errors))
 
+    def test_rejects_guidance_inside_multiline_inline_code(self) -> None:
+        headings = "\n".join(marker for marker in self.markers if marker.startswith("#"))
+        hidden_guidance = "\n".join(
+            marker for marker in self.markers if not marker.startswith("#")
+        )
+        content = headings + "\n`\n" + hidden_guidance + "\n`\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_processing_instruction(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body("<?hidden\n" + hidden_markers + "\n?>\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_cdata_block(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body(
+            "<![CDATA[\n" + hidden_markers + "\n]]>\n"
+        )
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_html_declaration(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body("<!HIDDEN\n" + hidden_markers + "\n>\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_inside_blank_terminated_html_block(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        errors = validator.validate_skill_body("<div>\n" + hidden_markers + "\n</div>\n\n")
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
     def test_rejects_safeguards_inside_html_preformatted_code(self) -> None:
         hidden_markers = "\n".join(self.markers)
         errors = validator.validate_skill_body("<pre>\n" + hidden_markers + "\n</pre>\n")
