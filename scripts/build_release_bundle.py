@@ -48,10 +48,16 @@ def sha256_file(path: Path) -> str:
 def build_release_bundle(root: Path, output_directory: Path) -> tuple[Path, Path]:
     """Create a byte-for-byte deterministic ZIP and a matching checksum file."""
     root = root.resolve()
-    output_directory.mkdir(parents=True, exist_ok=True)
-    archive_path = output_directory / ARCHIVE_NAME
-    checksum_path = output_directory / CHECKSUM_NAME
     skill_directory = root / SKILL_RELATIVE_DIR
+    resolved_skill_directory = skill_directory.resolve()
+
+    output_directory.mkdir(parents=True, exist_ok=True)
+    resolved_output_directory = output_directory.resolve()
+    if resolved_output_directory.is_relative_to(resolved_skill_directory):
+        raise ValueError("Release output directory must be outside the distributable skill directory")
+
+    archive_path = resolved_output_directory / ARCHIVE_NAME
+    checksum_path = resolved_output_directory / CHECKSUM_NAME
 
     with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_STORED) as archive:
         for path in iter_skill_files(root):
