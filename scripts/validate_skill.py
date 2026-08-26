@@ -124,12 +124,29 @@ def mask_inline_code_spans(line: str) -> str:
 
 def visible_markdown_lines(lines: list[str]) -> list[str]:
     """Exclude real comments and fenced examples without confusing their contexts."""
-    fence_pattern = re.compile(
-        r"^[ \t]*(?:(?:>[ \t]*|(?:[-+*]|\d{1,9}[.)])[ \t]+|\[[ xX]\][ \t]+))*"
+    top_level_fence = re.compile(
+        r"^(?P<prefix> {0,3})(?P<fence>`{3,}|~{3,})(?P<suffix>.*)$"
+    )
+    list_fence = re.compile(
+        r"^(?P<prefix> {0,3}(?:(?:[-+*]|\d{1,9}[.)]) +)+)"
         r"(?P<fence>`{3,}|~{3,})(?P<suffix>.*)$"
     )
+
+    def opening_fence(line: str) -> tuple[str, int, int, int] | None:
+        match = list_fence.match(line)
+        if match is not None:
+            marker = match.group("fence")
+            content_indent = len(match.group("prefix"))
+            return marker[0], len(marker), content_indent, content_indent + 3
+
+        match = top_level_fence.match(line)
+        if match is None:
+            return None
+        marker = match.group("fence")
+        return marker[0], len(marker), 0, 3
+
     visible_lines: list[str] = []
-    fence: tuple[str, int] | None = None
+    fence: tuple[str, int, int, int] | None = None
     comment = False
     opaque_html_tag: str | None = None
     opaque_html_open = re.compile(
@@ -139,21 +156,21 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
 
     for raw_line in lines:
         if fence is not None:
-            character, length = fence
-            closing = fence_pattern.match(raw_line)
+            character, length, minimum_indent, maximum_indent = fence
+            closing = re.fullmatch(
+                rf"(?P<indent> *)(?P<fence>{re.escape(character)}{{{length},}})[ \t]*",
+                raw_line,
+            )
             if (
                 closing is not None
-                and closing.group("fence").startswith(character)
-                and len(closing.group("fence")) >= length
-                and not closing.group("suffix").strip()
+                and minimum_indent <= len(closing.group("indent")) <= maximum_indent
             ):
                 fence = None
             continue
 
-        opening = fence_pattern.match(raw_line) if not comment else None
+        opening = opening_fence(raw_line) if not comment else None
         if opening is not None:
-            marker = opening.group("fence")
-            fence = (marker[0], len(marker))
+            fence = opening
             continue
 
         raw_line = mask_inline_code_spans(raw_line)
@@ -200,10 +217,9 @@ def visible_markdown_lines(lines: list[str]) -> list[str]:
                 position = html_opening.end()
 
         line = "".join(fragments)
-        opening = fence_pattern.match(line) if not comment else None
+        opening = opening_fence(line) if not comment else None
         if opening is not None:
-            marker = opening.group("fence")
-            fence = (marker[0], len(marker))
+            fence = opening
             continue
         if line and not re.match(r"^(?: {4}|\t)", line):
             visible_lines.append(line)

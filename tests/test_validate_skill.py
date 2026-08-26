@@ -111,6 +111,18 @@ class SkillBodyValidationTests(unittest.TestCase):
         errors = validator.validate_skill_body("<pre>\n" + hidden_markers + "\n</pre>\n")
         self.assertTrue(any("required safety guidance" in error for error in errors))
 
+    def test_rejects_safeguards_after_over_indented_fake_fence_closer(self) -> None:
+        hidden_markers = "\n".join(self.markers)
+        content = "```markdown\n    ```\n" + hidden_markers + "\n```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
+    def test_rejects_safeguards_after_invalid_list_fence_closer(self) -> None:
+        hidden_markers = "\n".join("  " + marker for marker in self.markers)
+        content = "- ```markdown\n      ```\n" + hidden_markers + "\n  ```\n"
+        errors = validator.validate_skill_body(content)
+        self.assertTrue(any("required safety guidance" in error for error in errors))
+
     def test_accepts_unclosed_html_comment_inside_fenced_example(self) -> None:
         content = self.skill_text.replace(
             "# TAP Engineering Standard\n",
