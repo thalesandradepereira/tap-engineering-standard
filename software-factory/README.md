@@ -129,3 +129,7 @@ The software-factory version tracks the **main TAP Make Software orchestrator**;
 ## Floot Edition — published web Studio v0.1.0
 
 The [Floot-native TAP Studio](floot-edition/README.md) is live at [tap-software-factory.floot.app](https://tap-software-factory.floot.app), with managed PostgreSQL and authentication. Its source [snapshot](floot-edition/snapshot-manifest.json) is **not** a complete Floot export or automatic GitHub->Floot synchronization. Core Python/Graphify remain independent.
+
+### TAP Floot AI Builder v0.2.0
+
+The [hosted Floot Studio](floot-edition/README.md) now provides model-assisted, credits-confirmed single-page generation, with a 3/day account entitlement and no automatic save. Public sign-up is disabled; billed LLM E2E remains to be tested. The original Python/Graphify core is separate.

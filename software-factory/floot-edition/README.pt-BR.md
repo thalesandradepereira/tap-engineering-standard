@@ -1,4 +1,4 @@
-# TAP Software Factory Studio — Edição Floot v0.1.0
+# TAP Software Factory Studio — Edição Floot v0.2.0
 
 [**Abrir TAP Studio hospedado**](https://tap-software-factory.floot.app) · [English](README.md) · [Release do núcleo no GitHub](https://github.com/thalesandradepereira/tap-engineering-standard/releases/tag/software-factory-v4.1.0) · [Relatório QA](QA_STATUS.md)
 
@@ -11,12 +11,12 @@ Implementação **web independente, nativa do Floot**, para desenvolvimento prin
 - PostgreSQL gerenciado, autenticação, recuperação por e-mail, sessão e propriedade dos projetos por conta.
 - Endpoints protegidos para listar, criar, salvar e excluir projetos. **Quatro verificações sem login retornaram HTTP 401** no domínio público.
 - Editor HTML/CSS/JS, preview em iframe isolado com CSP restritiva e exportação de HTML independente.
-- TypeScript sem erros; as duas suítes Jasmine selecionadas passaram, com dez casos específicos do Studio.
+- TypeScript sem erros; as quatro suítes Jasmine selecionadas passaram, com dez casos específicos do Studio.
 - Checkpoint restaurável criado antes da publicação. Release **somente web**, sem consumir build nativo iOS/Android.
 
 ## Arquivos versionados neste snapshot
 
-A pasta `snapshot/` contém **19 arquivos autorais/de integração** obtidos do projeto Floot. O [manifesto](snapshot-manifest.json) identifica os arquivos e o projeto de origem. O Floot fornece componentes React, helpers de autenticação, configuração do banco e credenciais gerenciadas, que **não foram replicados neste repositório**. Esta pasta serve para **rastreabilidade e auditoria**, não é um export completo do Floot para executar isoladamente.
+A pasta `snapshot/` contém **28 arquivos autorais/de integração** obtidos do projeto Floot. O [manifesto](snapshot-manifest.json) identifica os arquivos e o projeto de origem. O Floot fornece componentes React, helpers de autenticação, configuração do banco e credenciais gerenciadas, que **não foram replicados neste repositório**. Esta pasta serve para **rastreabilidade e auditoria**, não é um export completo do Floot para executar isoladamente.
 
 ### Dados e segurança
 
@@ -36,10 +36,20 @@ O Floot criou a conta administrativa do proprietário **sem senha inicial**. Abr
 | Integração com GitHub | Snapshot de código e release; **sem sincronização automática** |
 | Backend Python original | Separado em `../plugins/tap-studio-runtime` |
 | Graphify | Skills preservadas; OAuth/indexação externa pendentes |
-| Geração por IA paga | **Não ativada** |
+| Geração por IA paga | **Disponível com confirmação de créditos, sem chamadas pagas no QA** |
 | QA visual autenticado | Pendente após abrir e fazer login no app |
 | SLA/uptime | Infraestrutura Floot; sem garantia independente |
 
 Para futuras atualizações: modificar o Floot, testar, republicar e atualizar este snapshot por PR no GitHub. Um commit GitHub **não publica automaticamente** o Floot.
 
 **Made by TAP.**
+
+## TAP AI Builder — versão beta v0.2.0
+
+A edição Floot oferece o painel **"Crie por descrição"**. A geração utiliza **GPT-6 Luna integrado ao Floot** e **consome créditos Floot quando executada**. Cada solicitação exige marcar o aceite e confirmar novamente antes de chamar a IA. O servidor limita o uso a **3 tentativas por usuário autorizado por dia UTC**, verificando o limite de modo atômico. Apenas contas habilitadas na lista de permissões podem gerar conteúdo.
+
+O HTML/CSS/JavaScript retornado passa por validações e aparece em **pré-visualização isolada**. O projeto existente não muda até clicar em **Aplicar no editor** e os arquivos só ficam salvos depois de **Salvar**. Não enviamos o código atual nem registros do banco à IA: somente a descrição e o nome do projeto. Respostas inválidas/truncadas ainda podem consumir créditos e uma tentativa diária. Nenhuma chamada paga foi executada durante os testes de engenharia.
+
+**Segurança:** cadastro público bloqueado no servidor (HTTP 403), logins anteriores preservados; endpoint de IA sem sessão respondeu HTTP 401. TypeScript aprovado, **4 suítes Jasmine** passaram. Teste E2E autenticado usando o modelo real, pentest independente e sincronização automática GitHub→Floot continuam pendentes.
+
+[Relatório QA](QA_STATUS.md) · [SQL de referência](schema.sql) · [Snapshot de 28 arquivos](snapshot-manifest.json)

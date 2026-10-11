@@ -1,4 +1,4 @@
-# TAP Software Factory Studio — Floot Edition v0.1.0
+# TAP Software Factory Studio — Floot Edition v0.2.0
 
 [**Open hosted web Studio**](https://tap-software-factory.floot.app) · [Português](README.pt-BR.md) · [Core GitHub release](https://github.com/thalesandradepereira/tap-engineering-standard/releases/tag/software-factory-v4.1.0) · [QA](QA_STATUS.md)
 
@@ -16,7 +16,7 @@ This is an **independent Floot-native web implementation**, built primarily for 
 
 ## Files in this GitHub snapshot
 
-The `snapshot/` folder contains **19 author-created or edited code/design files** captured from the live Floot project. See [manifest](snapshot-manifest.json) for the exact list and Floot project identifier. The Floot platform injects its own React components, session/auth helpers, database client, secrets and project configuration when resources are provisioned; those vendor-managed files **are not mirrored**. This GitHub directory is **a traceability snapshot, not an independently executable or complete Floot export**.
+The `snapshot/` folder contains **28 author-created or edited code/design files** captured from the live Floot project. See [manifest](snapshot-manifest.json) for the exact list and Floot project identifier. The Floot platform injects its own React components, session/auth helpers, database client, secrets and project configuration when resources are provisioned; those vendor-managed files **are not mirrored**. This GitHub directory is **a traceability snapshot, not an independently executable or complete Floot export**.
 
 ### Data contract
 
@@ -36,10 +36,20 @@ The app requires its own login. The owner's Floot app account was provisioned wi
 | GitHub code release | Source snapshot and release notes; **not auto-synced to Floot** |
 | Original Python/FastAPI runtime | Separate in `../plugins/tap-studio-runtime` |
 | Graphify MCP | Plugin remains in core; Graphify OAuth/indexing not verified |
-| LLM feature generation | **Not activated**; avoids unapproved model charges |
+| LLM feature generation | **Live UI/endpoint available; real paid generation NOT run in QA** |
 | Browser visual E2E | Pending user-open preview and authenticated session |
 | 24/7 uptime/SLA | Floot service hosting, **no independent SLA guarantee** |
 
 For next changes, edit the Floot app using authorized Floot tools, run Floot typecheck/tests, publish, then create a **new reviewed GitHub snapshot**. A GitHub commit alone does not redeploy Floot.
 
 **Made by TAP.**
+
+## AI Builder beta — v0.2.0
+
+The web Studio now includes a **"Crie por descrição"** prompt panel. It uses Floot's integrated **GPT-6 Luna** service; calls debit the owner's Floot credits and therefore require **an explicit checkbox and confirmation on every Generate action**. A maximum of **3 attempts per authorized user per UTC day** is enforced in the server database with an atomic lock. AI generation is restricted by a separate whitelist: anonymous visitors and newly registered accounts cannot spend credits.
+
+Generated HTML, CSS and JavaScript are **validated** and shown in a sandboxed preview. They do **not** replace existing project files until the user chooses **Apply**, and are **not persisted until Save**. The current source files/database are not sent to the model, only the user's description and project title. Invalid/truncated responses may still cost Floot credits and a daily attempt. No live billed model call was performed during engineering QA.
+
+**Security:** Public registration has been disabled server-side (HTTP 403) for this private beta. Existing registered accounts continue to work. A production unauthorized AI request returned HTTP 401; page routes returned 200; TypeScript checked clean and four Jasmine suites passed. No browser-authenticated model E2E, independent penetration test or automated GitHub→Floot deployment has been verified.
+
+[QA record](QA_STATUS.md) · [Reference SQL](schema.sql) · [28-file source snapshot](snapshot-manifest.json)
