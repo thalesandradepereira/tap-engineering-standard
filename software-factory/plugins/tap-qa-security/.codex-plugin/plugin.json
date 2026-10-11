@@ -1,0 +1,21 @@
+{
+  "interface": {
+    "capabilities": [
+      "Interactive"
+    ],
+    "category": "Productivity",
+    "defaultPrompt": "@tap-qa-security Revise as capacidades disponíveis e implemente este requisito com QA, segurança e evidências: ...",
+    "developerName": "Thales Pereira",
+    "displayName": "TAP QA & Security",
+    "longDescription": "Revisões técnicas, testes automatizados, threat modeling, supply chain, acessibilidade, desempenho e gates de release baseados em evidência.",
+    "shortDescription": "Testes e segurança avançados"
+  },
+  "name": "tap-qa-security",
+  "version": "1.0.0",
+  "description": "Revisões técnicas, testes automatizados, threat modeling, supply chain, acessibilidade, desempenho e gates de release baseados em evidência.",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "keywords": [],
+  "skills": "./skills"
+}

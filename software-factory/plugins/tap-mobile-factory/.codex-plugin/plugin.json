@@ -1,0 +1,21 @@
+{
+  "interface": {
+    "capabilities": [
+      "Interactive"
+    ],
+    "category": "Productivity",
+    "defaultPrompt": "@tap-mobile-factory Revise as capacidades disponíveis e implemente este requisito com QA, segurança e evidências: ...",
+    "developerName": "Thales Pereira",
+    "displayName": "TAP Mobile Factory",
+    "longDescription": "Desenvolvimento React Native/Expo, arquitetura offline, integração API, QA mobile e preparação de builds iOS/Android sujeitos às ferramentas e assinaturas efetivas.",
+    "shortDescription": "Android, iOS e Expo"
+  },
+  "name": "tap-mobile-factory",
+  "version": "1.0.0",
+  "description": "Desenvolvimento React Native/Expo, arquitetura offline, integração API, QA mobile e preparação de builds iOS/Android sujeitos às ferramentas e assinaturas efetivas.",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "keywords": [],
+  "skills": "./skills"
+}

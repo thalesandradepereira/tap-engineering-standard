@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "description": "Arquitetura cloud para executar aplicativos, oferecer dados/autenticação, publicar APIs e coordenar CI/CD seguro via infraestrutura própria e consentimento, sem provisionamento automático.",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "capabilities": [
+          "Interactive"
+        ],
+        "category": "Productivity",
+        "defaultPrompt": "Use @tap-cloud-infrastructure para esta tarefa. Verifique as ferramentas e permissões reais antes de agir.",
+        "developerName": "Thales Pereira",
+        "displayName": "TAP Cloud Infrastructure",
+        "longDescription": "Arquitetura cloud para executar aplicativos, oferecer dados/autenticação, publicar APIs e coordenar CI/CD seguro via infraestrutura própria e consentimento, sem provisionamento automático.",
+        "shortDescription": "Arquitetura cloud e deploy"
+      }
+    }
+  },
+  "name": "tap-cloud-infrastructure",
+  "version": "1.0.0"
+}

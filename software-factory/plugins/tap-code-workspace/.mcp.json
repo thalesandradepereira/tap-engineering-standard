@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "tap-local-workspace": {
+      "type": "stdio",
+      "command": "python3",
+      "args": [
+        "${PLUGIN_ROOT}/server/tap_workspace_mcp.py"
+      ],
+      "env": {},
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}

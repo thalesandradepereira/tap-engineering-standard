@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "updated_at": "2026-10-11",
+  "plugins": [
+    {
+      "name": "tap-make-software",
+      "version": "3.0.0",
+      "files": 30,
+      "skills": 10,
+      "mcp": true
+    },
+    {
+      "name": "tap-code-workspace",
+      "version": "1.0.0",
+      "files": 8,
+      "skills": 1,
+      "mcp": true
+    },
+    {
+      "name": "tap-data-auth",
+      "version": "1.0.0",
+      "files": 4,
+      "skills": 1,
+      "mcp": false
+    },
+    {
+      "name": "tap-mobile-factory",
+      "version": "1.0.0",
+      "files": 4,
+      "skills": 1,
+      "mcp": false
+    },
+    {
+      "name": "tap-deploy-ops",
+      "version": "1.0.0",
+      "files": 4,
+      "skills": 1,
+      "mcp": false
+    },
+    {
+      "name": "tap-qa-security",
+      "version": "1.0.0",
+      "files": 4,
+      "skills": 1,
+      "mcp": false
+    },
+    {
+      "name": "tap-graphify",
+      "version": "1.0.0",
+      "files": 7,
+      "skills": 1,
+      "mcp": true
+    },
+    {
+      "name": "tap-sandbox-executor",
+      "version": "1.0.0",
+      "files": 8,
+      "skills": 1,
+      "mcp": true
+    },
+    {
+      "name": "tap-cloud-infrastructure",
+      "version": "1.0.0",
+      "files": 5,
+      "skills": 1,
+      "mcp": false
+    }
+  ]
+}
