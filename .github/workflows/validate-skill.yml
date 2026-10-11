@@ -31,6 +31,9 @@ jobs:
       - name: Validate TAP Software Factory packages
         run: python3 software-factory/scripts/validate_packages.py
 
+      - name: Validate premium bilingual READMEs
+        run: python3 software-factory/scripts/validate_readmes.py
+
       - name: Run TAP Software Factory regression tests
         run: |
           python3 -m unittest discover -s software-factory/plugins/tap-code-workspace/tests -v

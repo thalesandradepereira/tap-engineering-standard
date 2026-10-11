@@ -234,3 +234,8 @@ The project is independent and is not endorsed by or affiliated with OpenAI, Ant
 **Build only what is necessary. Verify what matters. Protect what users trust.**
 
 </div>
+
+
+## TAP Software Factory — Full-stack ecosystem
+
+This repository also hosts [TAP Software Factory](software-factory/README.md): TAP Make Software **v4.1.0** with 11 integrated Skills, ten plugin packages including Graphify, and the self-hostable Studio Runtime. Read the [Brazilian Portuguese guide](software-factory/README.pt-BR.md), [QA status](software-factory/QA_STATUS.md) and [release notes](software-factory/RELEASE_NOTES_v4.1.0.md). This code is **not automatically deployed to production**.
