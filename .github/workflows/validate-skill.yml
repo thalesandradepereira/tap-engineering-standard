@@ -36,3 +36,10 @@ jobs:
           python3 -m unittest discover -s software-factory/plugins/tap-code-workspace/tests -v
           python3 -m unittest discover -s software-factory/plugins/tap-sandbox-executor/tests -v
           python3 -m unittest discover -s software-factory/plugins/tap-make-software/tests -v
+
+      - name: Run TAP Studio Runtime tests
+        run: |
+          python3 -m venv .venv-tap
+          .venv-tap/bin/python -m pip install --disable-pip-version-check -r software-factory/plugins/tap-studio-runtime/requirements.txt
+          .venv-tap/bin/python -m unittest discover -s software-factory/plugins/tap-studio-runtime/tests -v
+          node --check software-factory/plugins/tap-studio-runtime/web/studio.js

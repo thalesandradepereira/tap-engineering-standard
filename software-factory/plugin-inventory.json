@@ -4,9 +4,9 @@
   "plugins": [
     {
       "name": "tap-make-software",
-      "version": "3.0.0",
-      "files": 30,
-      "skills": 10,
+      "version": "4.0.0",
+      "files": 31,
+      "skills": 11,
       "mcp": true
     },
     {
@@ -62,6 +62,13 @@
       "name": "tap-cloud-infrastructure",
       "version": "1.0.0",
       "files": 5,
+      "skills": 1,
+      "mcp": false
+    },
+    {
+      "name": "tap-studio-runtime",
+      "version": "0.1.0",
+      "files": 13,
       "skills": 1,
       "mcp": false
     }

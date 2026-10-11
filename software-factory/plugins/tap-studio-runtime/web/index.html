@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07151b">
+  <title>TAP Studio — Build better software</title>
+  <link rel="stylesheet" href="/studio.css">
+  <script src="/studio.js" defer></script>
+</head>
+<body>
+  <header class="top"><div class="brand"><span class="brandmark">T</span><span><b>TAP</b> <span class="brand-muted">STUDIO</span></span></div><span class="top-meta">SOFTWARE FACTORY · PRIVATE BETA</span><span class="status"><i></i> Self-hosted runtime</span></header>
+  <main id="loginScreen" class="auth-shell">
+    <div class="intro"><div class="overline">MADE BY TAP · ENGINEERING-FIRST</div><h1>Da ideia ao<br><em>software.</em></h1><p>Seus projetos e arquivos em uma única área de trabalho. Código acessível, dados sob seu controle e validação antes da publicação.</p><div class="pill-row"><span>01 · PROJETOS</span><span>02 · CÓDIGO</span><span>03 · PREVIEW</span></div></div>
+    <form id="loginForm" class="login-card"><span class="eyebrow">ACESSO PRIVADO</span><h2>Entrar no Studio</h2><p>Use a conta administradora configurada no servidor.</p><label>Usuário<input id="username" type="text" autocomplete="username" required maxlength="40"></label><label>Senha<input id="password" type="password" autocomplete="current-password" required></label><button class="primary" type="submit">Entrar no workspace <span>↗</span></button><small>Credenciais mantidas somente na memória desta página.</small><p id="loginError" class="error" role="alert"></p></form>
+  </main>
+  <div id="studioScreen" class="workspace hidden">
+    <aside class="sidebar"><div class="side-title">SEUS PROJETOS <button id="newProject" title="Criar projeto">＋</button></div><div id="projectsList" class="projects-list"></div><div class="side-footer"><div class="tiny-dot"></div>Espaço privado · Arquivos persistidos<button id="logout">Sair</button></div></aside>
+    <section class="mainpane">
+      <div class="section-head"><div><div class="overline">WORKSPACE / PROJETO</div><h1 id="projectTitle">Selecione um projeto</h1><p id="projectDescription">Crie ou abra um aplicativo para começar.</p></div><div class="actions"><button id="download" disabled>↓ Exportar ZIP</button><button id="showPreview" class="accent" disabled>Pré-visualizar</button></div></div>
+      <div id="emptyState" class="empty"><div class="empty-icon">⌘</div><h2>Seu próximo projeto começa aqui.</h2><p>Crie um protótipo web, edite os arquivos e abra uma prévia isolada.</p><button id="emptyCreate" class="primary">＋ Novo projeto</button></div>
+      <div id="editorShell" class="editor-shell hidden"><nav class="files-pane"><h3>EXPLORADOR</h3><div id="fileList"></div></nav><div class="code-pane"><div class="code-head"><span id="fileName">Arquivo</span><span class="code-note">EDIÇÃO LOCAL DO PROJETO</span><button id="saveFile" class="accent">Salvar arquivo</button></div><textarea id="codeEditor" spellcheck="false" aria-label="Editor de código"></textarea><div class="footnote">Edições persistidas no servidor. Execução de código e deploy automáticos não estão habilitados.</div></div></div>
+      <div id="previewShell" class="preview-shell hidden"><div class="preview-head"><span>PRÉ-VISUALIZAÇÃO ISOLADA</span><button id="closePreview">✕ Voltar ao código</button></div><iframe id="previewFrame" title="Pré-visualização do projeto" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe><p>Preview de HTML/CSS/JavaScript em iframe com origem isolada. Não é um deployment público.</p></div>
+      <p id="toast" class="toast" role="status"></p>
+    </section>
+  </div>
+  <dialog id="newDialog"><form id="createForm" class="dialog-content"><span class="eyebrow">CRIAR UM PROJETO</span><h2>Uma ideia. Um começo.</h2><p>Gere a estrutura inicial e continue evoluindo no editor ou com as Skills TAP.</p><label>Nome<input name="name" id="newName" maxlength="80" required placeholder="Ex.: App de Academias"></label><label>Descrição<textarea name="description" id="newDescription" maxlength="2000" rows="4" placeholder="Descreva o objetivo e os principais recursos..."></textarea></label><label class="consent-line"><input id="allowExternalModel" type="checkbox"> Autorizo enviar esta descrição ao provedor externo de IA configurado. Pode haver cobrança por uso e transmissão de dados.</label><div class="dialog-buttons"><button id="generateWithAI" type="button">Gerar com IA</button><button type="button" id="cancelCreate">Cancelar</button><button class="primary" type="submit">Criar estrutura →</button></div><p class="footnote">Criar estrutura usa scaffold determinístico. Gerar com IA exige provedor configurado, consentimento e revisão do código. Nunca publica automaticamente.</p></form></dialog>
+  <footer class="made">Made by TAP · v0.1 · Controle de código e projeto</footer>
+</body>
+</html>

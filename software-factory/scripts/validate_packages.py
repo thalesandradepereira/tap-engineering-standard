@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
     "tap-make-software", "tap-code-workspace", "tap-data-auth",
     "tap-mobile-factory", "tap-deploy-ops", "tap-qa-security",
-    "tap-graphify", "tap-sandbox-executor", "tap-cloud-infrastructure",
+    "tap-graphify", "tap-sandbox-executor", "tap-cloud-infrastructure", "tap-studio-runtime",
 }
 
 def main():
@@ -39,7 +39,7 @@ def main():
             assert not f.is_symlink(), f
             assert not (f.is_file() and f.name in {".env", "id_rsa", ".npmrc"}), f
     core = directory / "tap-make-software"
-    assert len(list(core.glob("skills/*/SKILL.md"))) == 10
+    assert len(list(core.glob("skills/*/SKILL.md"))) == 11
     for name in EXPECTED - {"tap-make-software"}:
         original = directory / name / "skills" / name / "SKILL.md"
         copy = core / "skills" / name / "SKILL.md"
@@ -48,7 +48,7 @@ def main():
     for name in ("tap-graphify", "tap-make-software"):
         mcp = json.loads((directory / name / "mcp.json").read_text(encoding="utf-8"))
         assert mcp["mcpServers"]["graphify"]["url"] == endpoint
-    print(f"PASS: {len(EXPECTED)} plugins, {total} Skill files, 10 integrated Skills, Graphify MCP wiring")
+    print(f"PASS: {len(EXPECTED)} plugins, {total} Skill files, 11 integrated Skills, Graphify MCP wiring")
 
 if __name__ == "__main__":
     main()

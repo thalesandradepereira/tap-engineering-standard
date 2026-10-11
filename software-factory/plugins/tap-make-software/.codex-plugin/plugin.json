@@ -2,7 +2,7 @@
   "interface": {
     "displayName": "TAP Make Software",
     "shortDescription": "Software com QA e segurança",
-    "longDescription": "Software factory integrada com cinco Skills de workspace, data/auth, mobile, deploy e QA. Usa ferramentas acessíveis e auditáveis; servidor MCP local opcional é independente. Não inclui hosting cloud nem contas pré-provisionadas.",
+    "longDescription": "Orquestrador TAP de 11 Skills, com código executável para Studio Runtime self-hosted, Graphify declarado e ferramentas locais de testes. A hospedagem, o OAuth remoto e o provedor de IA exigem conexão e autorização.",
     "developerName": "Thales Pereira",
     "category": "Productivity",
     "capabilities": [
@@ -20,8 +20,8 @@
     }
   },
   "name": "tap-make-software",
-  "version": "3.0.0",
-  "description": "Orquestrador unificado com 10 Skills: código, Graphify, sandbox, cloud, dados/auth, mobile, deploy, QA e setup; uso condicionado a ferramentas e autorizações reais.",
+  "version": "4.0.0",
+  "description": "TAP Make Software com 11 Skills, Studio Runtime executável, Graphify, workspace, sandbox local, dados, mobile, cloud, deploy e QA; requer infraestrutura real para acesso cloud.",
   "author": {
     "name": "Thales Pereira"
   },

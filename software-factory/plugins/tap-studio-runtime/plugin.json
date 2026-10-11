@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "description": "Aplicação self-hosted de projetos web com login, banco SQLite, editor, exportação, preview isolado e subset MCP autenticado. Não provisiona nuvem nem OAuth automaticamente.",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "capabilities": [
+          "Interactive"
+        ],
+        "category": "Productivity",
+        "defaultPrompt": "Ajude-me a configurar e validar o TAP Studio Runtime em um host autorizado.",
+        "developerName": "Thales Pereira",
+        "displayName": "TAP Studio Runtime",
+        "longDescription": "Código executável de aplicação privada com interface e API. Instalação/hospedagem e autenticação MCP remota dependem de infraestrutura autorizada.",
+        "shortDescription": "Workspace web privado TAP"
+      }
+    }
+  },
+  "name": "tap-studio-runtime",
+  "version": "0.1.0"
+}
