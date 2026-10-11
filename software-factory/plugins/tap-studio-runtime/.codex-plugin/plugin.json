@@ -1,20 +1,20 @@
 {
   "interface": {
+    "displayName": "TAP Studio Runtime",
+    "shortDescription": "Workspace web privado TAP",
+    "longDescription": "Código executável de aplicação privada com interface e API. Instalação/hospedagem e autenticação MCP remota dependem de infraestrutura autorizada.",
+    "developerName": "TAP Creative Lab",
+    "category": "Productivity",
     "capabilities": [
       "Interactive"
     ],
-    "category": "Productivity",
-    "defaultPrompt": "Ajude-me a configurar e validar o TAP Studio Runtime em um host autorizado.",
-    "developerName": "Thales Pereira",
-    "displayName": "TAP Studio Runtime",
-    "longDescription": "Código executável de aplicação privada com interface e API. Instalação/hospedagem e autenticação MCP remota dependem de infraestrutura autorizada.",
-    "shortDescription": "Workspace web privado TAP"
+    "defaultPrompt": "Ajude-me a configurar e validar o TAP Studio Runtime em um host autorizado."
   },
   "name": "tap-studio-runtime",
-  "version": "0.1.0",
-  "description": "Aplicação self-hosted de projetos web com login, banco SQLite, editor, exportação, preview isolado e subset MCP autenticado. Não provisiona nuvem nem OAuth automaticamente.",
+  "version": "0.2.0",
+  "description": "Studio self-hosted com API, login, SQLite persistente e implantação TLS via Docker Compose/Caddy, backup SQLite e MCP experimental; exige servidor e domínio autorizados.",
   "author": {
-    "name": "Thales Pereira"
+    "name": "TAP Creative Lab"
   },
   "keywords": [],
   "skills": "./skills"

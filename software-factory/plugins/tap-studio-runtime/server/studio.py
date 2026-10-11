@@ -430,6 +430,27 @@ def create_app(db_path: str, bootstrap_user: str | None = None,
     return app
 
 
+
+def read_bootstrap_password() -> str | None:
+    """Read a private admin bootstrap secret from an environment variable or Docker secret.
+
+    File and direct-value settings are mutually exclusive, to avoid ambiguous deployments.
+    """
+    direct = os.environ.get('TAP_STUDIO_ADMIN_PASSWORD')
+    filename = os.environ.get('TAP_STUDIO_ADMIN_PASSWORD_FILE')
+    if direct and filename:
+        raise ValueError('Choose only one admin password source')
+    if filename:
+        p = Path(filename)
+        if not p.is_file() or p.is_symlink():
+            raise ValueError('Admin password file must be a regular file')
+        value = p.read_text(encoding='utf-8').rstrip('\r\n')
+        if len(value) < 12:
+            raise ValueError('Admin password secret must have at least 12 characters')
+        return value
+    return direct or None
+
+
 def main():
     import uvicorn
     db_path=os.environ.get('TAP_STUDIO_DB_PATH')
@@ -437,7 +458,7 @@ def main():
         raise RuntimeError('TAP_STUDIO_DB_PATH must be an absolute path on durable storage')
     Path(db_path).parent.mkdir(parents=True,exist_ok=True)
     user=os.environ.get('TAP_STUDIO_ADMIN_USER')
-    password=os.environ.get('TAP_STUDIO_ADMIN_PASSWORD')
+    password=read_bootstrap_password()
     if bool(user)!=bool(password):raise RuntimeError('Both bootstrap credentials are required together')
     app=create_app(db_path,bootstrap_user=user,bootstrap_password=password)
     uvicorn.run(app,host='0.0.0.0',port=int(os.environ.get('PORT','8080')),proxy_headers=False)

@@ -20,7 +20,7 @@
     }
   },
   "name": "tap-make-software",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "TAP Make Software com 11 Skills, Studio Runtime executável, Graphify, workspace, sandbox local, dados, mobile, cloud, deploy e QA; requer infraestrutura real para acesso cloud.",
   "author": {
     "name": "Thales Pereira"

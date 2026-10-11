@@ -5,6 +5,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && groupadd -g 10001 tap && useradd -u 10001 -g tap -s /usr/sbin/nologin tap && mkdir /data && chown tap:tap /data
 COPY server/ ./server/
 COPY web/ ./web/
+COPY deploy/backup_sqlite.py ./deploy/backup_sqlite.py
 USER 10001:10001
 EXPOSE 8080
 VOLUME /data

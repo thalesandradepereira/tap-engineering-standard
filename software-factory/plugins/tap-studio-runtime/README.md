@@ -39,3 +39,7 @@ Cross-user access, input limits, path traversal, failed logins, token revocation
 ## Known differences versus Emergent
 
 No managed always-on hosting, public preview domains, agents orchestrating code/run/debug, React/Expo native pipelines, automatic git pushes, mobile builds, multi-user invitations, paid quotas, OAuth identity, or source-level Graphify indexing. TAP Studio is a self-hostable private-beta control plane; the ChatGPT Skills and other MCP plugins support the broader *workflow*, not automatic in-process tool composition.
+
+## Full-stack single-host deployment (v0.2.0)
+
+A production-shaped deployment template is available in [`deploy/README.production.md`](deploy/README.production.md), using Caddy automatic HTTPS, a non-public FastAPI backend, persistent SQLite volume, Docker secrets for bootstrap credentials and on-demand consistent database backups. It has **not** been deployed to a real host; DNS, container runtime and credentials remain outside this package. Graphify and existing Skills remain separate and intact.
