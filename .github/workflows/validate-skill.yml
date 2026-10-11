@@ -27,3 +27,12 @@ jobs:
 
       - name: Run regression tests
         run: python3 -m unittest discover -s tests -v
+
+      - name: Validate TAP Software Factory packages
+        run: python3 software-factory/scripts/validate_packages.py
+
+      - name: Run TAP Software Factory regression tests
+        run: |
+          python3 -m unittest discover -s software-factory/plugins/tap-code-workspace/tests -v
+          python3 -m unittest discover -s software-factory/plugins/tap-sandbox-executor/tests -v
+          python3 -m unittest discover -s software-factory/plugins/tap-make-software/tests -v
