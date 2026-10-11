@@ -125,3 +125,7 @@ Para os testes do Studio, instale as [dependências](plugins/tap-studio-runtime/
 A versão da Software Factory segue o **orquestrador TAP Make Software**. Cada plugin especializado possui versão independente. Consulte [GitHub Releases](https://github.com/thalesandradepereira/tap-engineering-standard/releases) para entregas publicadas. Um GitHub Release não equivale a hospedagem ativa.
 
 **Responsável:** Thales Andrade Pereira · **Padrão de engenharia:** [TAP Engineering Standard](../README.pt-BR.md) · **Desenvolvido e documentado:** Made by TAP.
+
+## Edição Floot — Studio web publicado v0.1.0
+
+O [TAP Studio nativo do Floot](floot-edition/README.pt-BR.md) está publicado em [tap-software-factory.floot.app](https://tap-software-factory.floot.app), com PostgreSQL e autenticação. O [snapshot](floot-edition/snapshot-manifest.json) **não é** export completo nem sincronização automática GitHub->Floot. O Python/Graphify original permanece separado.

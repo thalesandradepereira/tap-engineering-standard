@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "title": "TAP Software Factory Studio — Floot Edition",
+  "release": "0.1.0",
+  "snapshot_date": "2026-10-11",
+  "public_url": "https://tap-software-factory.floot.app",
+  "floot_project_id": "76313550-718a-42db-9e9c-4490a81dee7b",
+  "github_core_release": "software-factory-v4.1.0",
+  "framework": "Floot React + TypeScript + managed PostgreSQL auth",
+  "files": [
+    "base.css",
+    "static/__dev/design-principles.md",
+    "pages/_index.tsx",
+    "pages/_index.module.css",
+    "pages/_index.pageLayout.tsx",
+    "pages/login.tsx",
+    "pages/login.module.css",
+    "pages/login.pageLayout.tsx",
+    "helpers/studioTemplates.tsx",
+    "helpers/studioTemplates.spec.tsx",
+    "helpers/studioProjectModel.tsx",
+    "endpoints/studio/projects_GET.ts",
+    "endpoints/studio/projects_GET.schema.ts",
+    "endpoints/studio/create_POST.ts",
+    "endpoints/studio/create_POST.schema.ts",
+    "endpoints/studio/save_POST.ts",
+    "endpoints/studio/save_POST.schema.ts",
+    "endpoints/studio/delete_POST.ts",
+    "endpoints/studio/delete_POST.schema.ts"
+  ],
+  "note": "Partial authored-file snapshot only; Floot-provisioned authentication, DB runtime, seeded component library and secrets are NOT mirrored; no GitHub->Floot auto-deployment."
+}
