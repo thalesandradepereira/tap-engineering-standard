@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "description": "Skill e servidor MCP local para operações de workspace e verificações estáticas restritas. Não hospeda execução cloud; requer host desktop compatível e autorização de escrita.",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "capabilities": [
+          "Interactive"
+        ],
+        "category": "Productivity",
+        "defaultPrompt": "@tap-code-workspace Revise as capacidades disponíveis e implemente este requisito com QA, segurança e evidências: ...",
+        "developerName": "Thales Pereira",
+        "displayName": "TAP Code Workspace",
+        "longDescription": "Skill e servidor MCP local para operações de workspace e verificações estáticas restritas. Não hospeda execução cloud; requer host desktop compatível e autorização de escrita.",
+        "shortDescription": "Arquivos e checks via MCP"
+      }
+    }
+  },
+  "name": "tap-code-workspace",
+  "version": "1.0.0"
+}

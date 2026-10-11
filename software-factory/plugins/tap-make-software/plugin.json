@@ -1,0 +1,29 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "tap-make-software",
+  "version": "3.0.0",
+  "description": "Orquestrador unificado com 10 Skills: código, Graphify, sandbox, cloud, dados/auth, mobile, deploy, QA e setup; uso condicionado a ferramentas e autorizações reais.",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "TAP Make Software",
+        "shortDescription": "Software com QA e segurança",
+        "longDescription": "Software factory integrada com cinco Skills de workspace, data/auth, mobile, deploy e QA. Usa ferramentas acessíveis e auditáveis; servidor MCP local opcional é independente. Não inclui hosting cloud nem contas pré-provisionadas.",
+        "developerName": "Thales Pereira",
+        "category": "Productivity",
+        "capabilities": [
+          "Interactive"
+        ],
+        "defaultPrompt": [
+          "@tap-make-software Crie um aplicativo completo a partir desta ideia, com arquitetura, código, testes e plano de publicação: ...",
+          "@tap-make-software Analise este projeto/repositório, corrija os defeitos, rode os testes e documente os resultados.",
+          "@tap-make-software Projete um SaaS web e mobile com login, banco de dados, permissões e dashboard."
+        ]
+      },
+      "onboardingSkill": "./skills/tap-make-setup/SKILL.md"
+    }
+  }
+}

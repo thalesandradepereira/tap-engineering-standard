@@ -1,0 +1,21 @@
+{
+  "interface": {
+    "capabilities": [
+      "Interactive"
+    ],
+    "category": "Productivity",
+    "defaultPrompt": "@tap-data-auth Revise as capacidades disponíveis e implemente este requisito com QA, segurança e evidências: ...",
+    "developerName": "Thales Pereira",
+    "displayName": "TAP Data & Auth",
+    "longDescription": "Arquitetura e implementação verificável de persistência multiusuário, autenticação, autorização, migrações, backup e privacidade, com provedor a confirmar.",
+    "shortDescription": "Login, banco e permissões"
+  },
+  "name": "tap-data-auth",
+  "version": "1.0.0",
+  "description": "Arquitetura e implementação verificável de persistência multiusuário, autenticação, autorização, migrações, backup e privacidade, com provedor a confirmar.",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "keywords": [],
+  "skills": "./skills"
+}

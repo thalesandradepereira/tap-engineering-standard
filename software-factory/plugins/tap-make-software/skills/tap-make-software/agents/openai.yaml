@@ -1,0 +1,4 @@
+interface:
+  display_name: TAP Make Software
+  short_description: Crie apps com QA e segurança
+  default_prompt: "Use @tap-make-software para projetar, implementar, testar e entregar este software com evidências: ..."

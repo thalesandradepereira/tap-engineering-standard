@@ -1,0 +1,21 @@
+{
+  "interface": {
+    "capabilities": [
+      "Interactive"
+    ],
+    "category": "Productivity",
+    "defaultPrompt": "@tap-deploy-ops Revise as capacidades disponíveis e implemente este requisito com QA, segurança e evidências: ...",
+    "developerName": "Thales Pereira",
+    "displayName": "TAP Deploy & Ops",
+    "longDescription": "Guias e operações de deploy com GitHub Actions, Pages, Cloud Run ou hosting aprovado; backups, segredos, observabilidade, rollback e validação de produção.",
+    "shortDescription": "CI, deploy e operação"
+  },
+  "name": "tap-deploy-ops",
+  "version": "1.0.0",
+  "description": "Guias e operações de deploy com GitHub Actions, Pages, Cloud Run ou hosting aprovado; backups, segredos, observabilidade, rollback e validação de produção.",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "keywords": [],
+  "skills": "./skills"
+}

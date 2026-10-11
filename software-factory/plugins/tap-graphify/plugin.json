@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "description": "Integra Graphify como MCP remoto oficial sujeito a OAuth e orienta o uso seguro do Graphify CLI local com grafo atualizado, análise de impacto e proveniência.",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "capabilities": [
+          "Interactive"
+        ],
+        "category": "Productivity",
+        "defaultPrompt": "Use @tap-graphify para esta tarefa. Verifique as ferramentas e permissões reais antes de agir.",
+        "developerName": "Thales Pereira",
+        "displayName": "TAP Graphify",
+        "longDescription": "Integra Graphify como MCP remoto oficial sujeito a OAuth e orienta o uso seguro do Graphify CLI local com grafo atualizado, análise de impacto e proveniência.",
+        "shortDescription": "Grafo do código com MCP"
+      }
+    }
+  },
+  "name": "tap-graphify",
+  "version": "1.0.0"
+}

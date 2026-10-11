@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "Thales Pereira"
+  },
+  "description": "Servidor MCP local que executa somente um perfil explícito de testes Python em contêiner Docker restrito. Sem execução cloud, sem shell arbitrário, requer Docker e opt-in.",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "capabilities": [
+          "Interactive"
+        ],
+        "category": "Productivity",
+        "defaultPrompt": "Use @tap-sandbox-executor para esta tarefa. Verifique as ferramentas e permissões reais antes de agir.",
+        "developerName": "Thales Pereira",
+        "displayName": "TAP Sandbox Executor",
+        "longDescription": "Servidor MCP local que executa somente um perfil explícito de testes Python em contêiner Docker restrito. Sem execução cloud, sem shell arbitrário, requer Docker e opt-in.",
+        "shortDescription": "Testes isolados via Docker"
+      }
+    }
+  },
+  "name": "tap-sandbox-executor",
+  "version": "1.0.0"
+}
