@@ -22,3 +22,7 @@
 **Limitations:** This source is an audit-only snapshot of 28 authored files. Floot's proprietary generated auth helpers, production environment and live PostgreSQL data are not exported. A GitHub tag does not publish Floot automatically. A green TypeScript/Jasmine suite does not verify generated pages from real model traffic.
 
 **Made by TAP.**
+
+## Incidente real de IA — 11/10/2026
+
+Uma tentativa de geração retornou erro de JSON inválido e consumiu **2.0000 créditos Floot** (status `failed` na tabela `studio_ai_requests`). A resposta original do modelo não foi retida: causa exata ainda não comprovada. A correção está em um PR draft, **não publicada**, pois o Floot atingiu o limite diário de build (reinício 12/10/2026 14:00 UTC). Consulte [plano de correção](PATCH_JSON_PENDING.md).

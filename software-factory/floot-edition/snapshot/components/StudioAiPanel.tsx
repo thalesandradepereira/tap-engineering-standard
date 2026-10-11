@@ -27,7 +27,7 @@ export function StudioAiPanel({projectId,projectName,dirty,onApply}:Props){
   }catch(err){
    const ex=err as Error&{code?:string};
    if(ex.code==="OUT_OF_CREDITS"){setError("Créditos Floot indisponíveis. Consulte os créditos da plataforma.");}
-   else setError(ex.message||"A geração falhou.");
+   else setError((ex.message||"A geração falhou.")+(typeof (ex as Error&{creditsConsumed?:number}).creditsConsumed==="number"?" Créditos dessa tentativa: "+(ex as Error&{creditsConsumed?:number}).creditsConsumed+".":"")+" Nenhuma repetição será feita automaticamente.");
   }finally{setLoading(false);}
  }
  function apply(){

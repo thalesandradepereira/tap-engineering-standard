@@ -1,4 +1,4 @@
-import {makeAiInstructions,parseGeneratedPage,validateGenerationRequest} from "./studioAiGeneration";
+import {makeAiInstructions,parseGeneratedPage,validateGenerationRequest,extractGeneratedText} from "./studioAiGeneration";
 describe("TAP AI Studio policy and output QA",()=>{
   it("rejects empty or extremely long prompts",()=>{
     expect(()=>validateGenerationRequest("")).toThrow();
@@ -32,5 +32,20 @@ describe("TAP AI Studio policy and output QA",()=>{
   });
   it("rejects blank HTML",()=>{
     expect(()=>parseGeneratedPage(JSON.stringify({html:"   ",css:"a{}",javascript:""}))).toThrow();
+  });
+
+  it("parses a JSON object with commentary and braces inside strings",()=>{
+    const sample=JSON.stringify({html:'<main data-label="{abc}">OK</main>',css:'main{color:blue}',javascript:'console.log("{x}")'});
+    expect(parseGeneratedPage("Aqui está:\n"+sample+"\nFim.")["index.html"]).toContain("{abc}");
+  });
+  it("does not try to repair truncated JSON",()=>{
+    expect(()=>parseGeneratedPage('{"html":"unfinished","css":"",')).toThrow();
+  });
+  it("detects an incomplete model response before JSON parsing",()=>{
+    expect(()=>extractGeneratedText({status:"incomplete",incomplete_details:{reason:"max_output_tokens"},output_text:'{"html":"x"'})).toThrow();
+  });
+  it("supports both direct response text and fallback message content",()=>{
+    expect(extractGeneratedText({status:"completed",output_text:'{"html":"OK"}'})).toContain('"html"');
+    expect(extractGeneratedText({status:"completed",output:[{type:"message",content:[{type:"output_text",text:"fallback"}]}]})).toBe("fallback");
   });
 });
