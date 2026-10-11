@@ -10,6 +10,8 @@ import { getStudioProjects } from "../endpoints/studio/projects_GET.schema";
 import { postStudioCreate } from "../endpoints/studio/create_POST.schema";
 import { postStudioSave } from "../endpoints/studio/save_POST.schema";
 import { postStudioDelete } from "../endpoints/studio/delete_POST.schema";
+import {StudioAiPanel} from "../components/StudioAiPanel";
+import type {GeneratedFiles} from "../endpoints/studio/ai_generate_POST.schema";
 import styles from "./_index.module.css";
 
 type FileName = "index.html" | "style.css" | "script.js";
@@ -44,6 +46,13 @@ export default function Index() {
    return ()=>{active=false};
  },[authState.type]);
  const project=projects.find(p=>p.id===selected);
+ function applyGenerated(files:GeneratedFiles){
+   if(!selected)return;
+   setProjects(prev=>prev.map(p=>p.id===selected?{...p,files:{...files}}:p));
+   setDirtyIds(ids=>ids.includes(selected)?ids:[...ids,selected]);
+   setTab("preview");
+   setNotice("Código da IA aplicado ao editor. Revise e clique em Salvar para persistir.");
+ }
  const dirty=Boolean(selected&&dirtyIds.includes(selected));
  const modify=(v:string)=>{
    setProjects(prev=>prev.map(p=>p.id===selected?{...p,files:{...p.files,[file]:v}}:p));
@@ -104,6 +113,7 @@ export default function Index() {
     <div className={styles.hero}><div><div className={styles.kicker}><span className={styles.kickerLine}></span> TAP ENGINEERING LAB</div><h1>{view==="studio"?"Crie. Teste. Evolua.":"Projetado para evoluir."}</h1><p>{view==="studio"?"Seu espaço para transformar ideias em aplicações, com código acessível e controle de versão.":"Código-fonte versionado no GitHub. Serviços isolados. Integrações verificáveis e sem promessas de produção."}</p></div><div className={styles.version}><span>EDIÇÃO FLOOT</span><strong>v0.1 beta</strong><small>Preview separado do Python Studio</small></div></div>
     {view==="studio"?<>
     <div className={styles.metrics}><div className={styles.metric}><span>PROJETOS</span><strong>{String(projects.length).padStart(2,"0")}</strong><small>Seu workspace privado</small></div><div className={styles.metric}><span>FRAMEWORK</span><strong>WEB</strong><small>HTML · CSS · JavaScript</small></div><div className={styles.metric}><span>VERSÃO TAP</span><strong>4.1.0</strong><small>Release do código GitHub</small></div><div className={styles.metric}><span>BACKEND</span><strong>FLOOT</strong><small>PostgreSQL e autenticação</small></div></div>
+    {project&&<StudioAiPanel key={project.id} projectId={project.id} projectName={project.name} dirty={dirty} onApply={applyGenerated}/>}
     <div className={styles.sectionTop}><div><h2>Seus projetos</h2><p>Projetos editáveis. Salve o trabalho à medida que evolui.</p></div><Button onClick={()=>setShowCreate(true)}><Plus size={16}/> Novo projeto</Button></div>
     {error&&<div role="alert" style={{padding:12,marginBottom:10,border:"1px solid #a55e56",borderRadius:8,color:"#ffc3bd"}}>{error}</div>}
     <div className={styles.workgrid}><div className={styles.projList}>{loading?<p style={{padding:14}}>Carregando projetos...</p>:projects.length===0?<p style={{padding:14,color:"#a9b8b3"}}>Nenhum projeto ainda. Use <strong>Novo projeto</strong> para começar.</p>:projects.map(p=><button key={p.id} className={p.id===selected?styles.projActive:styles.proj} onClick={()=>{setSelected(p.id);setFile("index.html");}}><div className={styles.projIcon}><FileCode2 size={21}/></div><div className={styles.projBody}><b>{p.name}</b><span>{p.description}</span><small>Atualizado {new Date(p.updated_at).toLocaleDateString("pt-BR")}</small></div><ArrowRight size={16}/></button>)}<div className={styles.projFooter}><ShieldCheck size={14}/> Cada conta acessa seus próprios projetos · TAP</div></div>

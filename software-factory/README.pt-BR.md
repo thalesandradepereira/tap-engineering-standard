@@ -129,3 +129,7 @@ A versão da Software Factory segue o **orquestrador TAP Make Software**. Cada p
 ## Edição Floot — Studio web publicado v0.1.0
 
 O [TAP Studio nativo do Floot](floot-edition/README.pt-BR.md) está publicado em [tap-software-factory.floot.app](https://tap-software-factory.floot.app), com PostgreSQL e autenticação. O [snapshot](floot-edition/snapshot-manifest.json) **não é** export completo nem sincronização automática GitHub->Floot. O Python/Graphify original permanece separado.
+
+### TAP Floot AI Builder v0.2.0
+
+O [Studio hospedado no Floot](floot-edition/README.pt-BR.md) agora permite gerar páginas por IA, com aceite de créditos por chamada, limite de 3 tentativas por dia e revisão antes de salvar. Cadastro público bloqueado; teste com modelo pago ainda pendente. O núcleo Python e Graphify permanecem independentes.
