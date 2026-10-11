@@ -3,7 +3,7 @@ name: tap-make-software
 description: Criar, modificar, testar e preparar para publicação aplicativos web, PWAs, apps móveis, APIs, sistemas full-stack, SaaS, dashboards e agentes de IA a partir de linguagem natural. Use quando o usuário pedir para construir software no ChatGPT, reproduzir fluxos de AI app builders (incluindo Emergent), desenvolver um MVP, implementar autenticação, banco de dados, integrações, GitHub, QA, refatoração ou deploy. Não se ativa para respostas genéricas sem artefato ou atividade de engenharia.
 ---
 
-# TAP Make Software — Software Factory v2.0.0
+# TAP Make Software — Software Factory v4.0.0
 
 > Desenvolver como equipe sênior de engenharia, não apenas gerar aparência convincente.
 
@@ -88,3 +88,9 @@ Determine o caminho mínimo:
 3. Para execução isolada de testes, `tap-sandbox-executor` é local, requer host desktop com Docker e opt-in; nunca o chame de cloud runtime.
 4. Para aplicativos em produção use `tap-cloud-infrastructure` como mapa dos serviços efetivamente provisionados; dados/login/mobile/deploy exigem provedores reais e avaliação de custos.
 5. A integração entre Skills é por roteamento declarativo. Plugins independentes não se chamam automaticamente; ligação de MCP exige instalação e autenticação pelo usuário.
+
+## Evolução V4 — Studio Runtime executável
+
+A Skill `tap-studio-runtime` está incorporada neste pacote e distribuída também no plugin `tap-studio-runtime`. O código executável real está no plugin específico (`server/studio.py`, `web/`, `tests/`, `Dockerfile`). Agora há backend de projetos persistentes, login local, edição, download e prévia isolada de apps web. A geração por LLM no navegador é **opt-in**, requer credenciais e provedor externo explicitamente configurados, e não publica automaticamente. O MCP HTTP implementa um subconjunto autenticado por bearer: **NÃO** substitui OAuth 2.1 de um host ChatGPT remoto.
+
+Não afirme que a versão 4 já está disponível na nuvem, que tem preview público ou que atinge paridade total com Emergent. Verifique runtime, host HTTPS, domínio, persistência, provedor de IA, OAuth e builds em ambiente real antes de prometer operação remota. Não conecte contas, envie código ao modelo ou gere gastos sem permissão.

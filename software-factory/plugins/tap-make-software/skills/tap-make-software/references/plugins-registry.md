@@ -14,3 +14,5 @@
 - `tap-graphify`: endpoint oficial `https://api.graphify.com/mcp` (OAuth e indexação exigidos; não conectado automaticamente).
 - `tap-sandbox-executor`: MCP stdio local com Docker opt-in (não cloud).
 - `tap-cloud-infrastructure`: orquestração de provisão, custos e gates; sem cloud provisionada.
+
+- `tap-studio-runtime` — projeto executável de workspace privado com REST, SQLite e MCP HTTP bearer; **código pronto para autohospedagem, NÃO serviço hospedado ou OAuth conectado**.

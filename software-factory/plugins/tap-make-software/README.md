@@ -82,3 +82,7 @@ Esses links não ativam uma dependência inter-plugin; cada skill já está inst
 - Sandbox executor: pacote especializado local, separado da Skill principal. Necessita Docker autorizado.
 - Cloud infrastructure: diretrizes de provisionamento, sem recursos provisionados.
 - Todos os módulos distribuídos separadamente também têm suas Skills incluídas neste orquestrador.
+
+## V4 — TAP Studio Runtime
+
+Nova Skill `tap-studio-runtime` incluída. O serviço executável e testes residem no plugin standalone `tap-studio-runtime` e na pasta `software-factory/plugins/tap-studio-runtime/` no GitHub. Não há endereço de produção nem autenticação OAuth remota configurada automaticamente.

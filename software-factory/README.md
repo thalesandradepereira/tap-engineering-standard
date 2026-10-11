@@ -34,3 +34,7 @@ Database/Auth cloud, mobile signed builds, CI credentials, hosted execution, pro
 Never add secrets to Git. Do not turn on automatic hooks or unreviewed installers.
 
 See `QA_STATUS.md` for what was locally tested. GitHub source sync alone does not test ChatGPT plugin connections.
+
+## V4 — Self-hosted TAP Studio Runtime
+
+`plugins/tap-studio-runtime` contains runnable code for a browser-based project editor, authenticated API and persistent SQLite storage; its model API is opt-in. Hosting, OAuth, credentials, actual model calls and production security gates require separate services and approval. The main plugin now includes 11 Skills, preserving Graphify.
