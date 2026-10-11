@@ -34,6 +34,9 @@ jobs:
       - name: Validate premium bilingual READMEs
         run: python3 software-factory/scripts/validate_readmes.py
 
+      - name: Validate Floot web release snapshot
+        run: python3 software-factory/scripts/validate_floot_edition.py
+
       - name: Run TAP Software Factory regression tests
         run: |
           python3 -m unittest discover -s software-factory/plugins/tap-code-workspace/tests -v

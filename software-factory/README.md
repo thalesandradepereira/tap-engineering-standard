@@ -125,3 +125,7 @@ For the Studio suite, install its [requirements](plugins/tap-studio-runtime/requ
 The software-factory version tracks the **main TAP Make Software orchestrator**; component versions evolve separately. See [GitHub Releases](https://github.com/thalesandradepereira/tap-engineering-standard/releases) for published release artifacts. A GitHub Release does not imply cloud deployment.
 
 **Maintainer:** Thales Andrade Pereira · **Engineering standard:** [TAP Engineering Standard](../README.md) · **Built and documented:** Made by TAP.
+
+## Floot Edition — published web Studio v0.1.0
+
+The [Floot-native TAP Studio](floot-edition/README.md) is live at [tap-software-factory.floot.app](https://tap-software-factory.floot.app), with managed PostgreSQL and authentication. Its source [snapshot](floot-edition/snapshot-manifest.json) is **not** a complete Floot export or automatic GitHub->Floot synchronization. Core Python/Graphify remain independent.

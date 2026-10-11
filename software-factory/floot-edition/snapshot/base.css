@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+:root {
+  /* Overlay layers */
+  --z-overlay: 400;
+  --z-spotlight: 1000; /* Tutorial spotlights/guided help */
+  /* System layers */
+  --z-critical: 2000; /* Critical system notifications */
+  /* spacing */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+}
+:root {
+  --background: #0d1819;
+  --foreground: #eff2ea;
+  --surface: #152324;
+  --surface-foreground: #ebf1ea;
+  --sidebar: #111f20;
+  --sidebar-foreground: #e7eee7;
+  --card: #1b2a2a;
+  --card-foreground: #eef3e9;
+  --popup: #203132;
+  --popup-foreground: #f2f3e9;
+  --primary: #65ceb6;
+  --primary-foreground: #082021;
+  --secondary: #273d3e;
+  --secondary-foreground: #ecf2ed;
+  --accent: #bf9b61;
+  --accent-foreground: #101819;
+  --muted: #273537;
+  --muted-foreground: #a9b8b3;
+  --success: #72c4a4;
+  --success-foreground: #0a2119;
+  --error: #e89686;
+  --error-foreground: #32110e;
+  --warning: #d7b57b;
+  --warning-foreground: #30210b;
+  --info: #83b5ca;
+  --info-foreground: #0a1f28;
+  --info-hover: #9bc6d6;
+  --info-active: #6b9fb5;
+  --border: #344547;
+  --font-family-base: 'IBM Plex Sans', sans-serif;
+  --font-family-display: 'Bricolage Grotesque', sans-serif;
+  --font-family-monospace: 'IBM Plex Mono', monospace;
+  --font-family-cursive: cursive;
+  --shadow: 0 4px 14px #00000024;
+  --shadow-md: 0 12px 32px #00000038;
+  --shadow-lg: 0 24px 54px #00000050;
+  --shadow-focus: 0 0 0 3px #65ceb655;
+  --radius-sm: 5px;
+  --radius: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-full: 999px;
+  --animation-duration-fast: 110ms;
+  --animation-duration-normal: 190ms;
+  --animation-duration-slow: 320ms;
+  --chart-color-1: #65ceb6;
+  --chart-color-2: #bf9b61;
+  --chart-color-3: #83b5ca;
+  --chart-color-4: #a6c996;
+  --chart-color-5: #c591ac;
+}
+.dark {
+  --background: #0d1819;
+  --foreground: #eff2ea;
+  --surface: #152324;
+  --card: #1b2a2a;
+  --muted: #273537;
+  --border: #344547;
+}
