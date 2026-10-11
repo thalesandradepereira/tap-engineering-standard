@@ -4,7 +4,7 @@
   "plugins": [
     {
       "name": "tap-make-software",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "files": 31,
       "skills": 11,
       "mcp": true
@@ -67,8 +67,8 @@
     },
     {
       "name": "tap-studio-runtime",
-      "version": "0.1.0",
-      "files": 13,
+      "version": "0.2.0",
+      "files": 20,
       "skills": 1,
       "mcp": false
     }

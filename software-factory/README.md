@@ -38,3 +38,7 @@ See `QA_STATUS.md` for what was locally tested. GitHub source sync alone does no
 ## V4 — Self-hosted TAP Studio Runtime
 
 `plugins/tap-studio-runtime` contains runnable code for a browser-based project editor, authenticated API and persistent SQLite storage; its model API is opt-in. Hosting, OAuth, credentials, actual model calls and production security gates require separate services and approval. The main plugin now includes 11 Skills, preserving Graphify.
+
+## Full-stack TLS self-hosting
+
+The [TAP Studio deployment playbook](DEPLOY_FULLSTACK.md) describes a production-shaped Docker Compose/Caddy configuration, persistent SQLite and backups. Not yet deployed. Core TAP Make Software v4.1.0 and TAP Studio Runtime v0.2.0.

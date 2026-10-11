@@ -86,3 +86,7 @@ Esses links não ativam uma dependência inter-plugin; cada skill já está inst
 ## V4 — TAP Studio Runtime
 
 Nova Skill `tap-studio-runtime` incluída. O serviço executável e testes residem no plugin standalone `tap-studio-runtime` e na pasta `software-factory/plugins/tap-studio-runtime/` no GitHub. Não há endereço de produção nem autenticação OAuth remota configurada automaticamente.
+
+## Full-stack single-host deployment (v4.1)
+
+Production-oriented Docker Compose, TLS Caddy, persistent SQLite, secret-file admin bootstrap and consistent backups are packaged in `tap-studio-runtime` v0.2.0. Refer to `tap-studio-runtime/deploy/README.production.md`. A connected Floot or another cloud provider is optional and requires the user to install/authorize it. There is no deployed production URL, no hosted OAuth MCP and no external billing permission in this plugin.

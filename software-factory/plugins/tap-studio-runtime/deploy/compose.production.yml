@@ -1,0 +1,89 @@
+name: tap-studio
+
+services:
+  studio:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: tap-studio-runtime:${TAP_STUDIO_IMAGE_TAG:-0.2.0}
+    restart: unless-stopped
+    init: true
+    environment:
+      TAP_STUDIO_DB_PATH: /data/studio.db
+      TAP_STUDIO_ADMIN_USER: ${TAP_STUDIO_ADMIN_USER:?Set administrator username}
+      TAP_STUDIO_ADMIN_PASSWORD_FILE: /run/secrets/studio_admin_password
+      PORT: '8080'
+    secrets:
+      - studio_admin_password
+    volumes:
+      - tap-studio-data:/data
+    networks:
+      - internal
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # No backend public port; Caddy is the only internet-facing service.
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    environment:
+      TAP_STUDIO_DOMAIN: ${TAP_STUDIO_DOMAIN:?Set a DNS hostname for HTTPS}
+    depends_on:
+      studio:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - tap-caddy-data:/data
+      - tap-caddy-config:/config
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+
+  backup:
+    image: tap-studio-runtime:${TAP_STUDIO_IMAGE_TAG:-0.2.0}
+    profiles: ["backup"]
+    restart: 'no'
+    environment:
+      TAP_STUDIO_DB_PATH: /data/studio.db
+      TAP_STUDIO_BACKUP_DIR: /backups
+    volumes:
+      - tap-studio-data:/data
+      - tap-studio-backups:/backups
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: ["python", "/srv/deploy/backup_sqlite.py"]
+
+secrets:
+  studio_admin_password:
+    file: ${TAP_STUDIO_SECRET_FILE:?Set absolute path of a private secret file readable by UID 10001}
+
+volumes:
+  tap-studio-data:
+  tap-studio-backups:
+  tap-caddy-data:
+  tap-caddy-config:
+
+networks:
+  internal: {}
