@@ -11,7 +11,7 @@
 | TAP Studio Runtime | 19 | FastAPI TestClient, protected CI |
 | **Total** | **174** | Last verified completed CI |
 
-The additional bilingual documentation gate (README links, locale switch, ten plugin versions, security caveats and Mermaid diagrams) runs via [[BT]]python3 software-factory/scripts/validate_readmes.py[[BT]] on pull requests and main updates.
+The additional bilingual documentation gate (README links, locale switch, ten plugin versions, security caveats and Mermaid diagrams) runs via `python3 software-factory/scripts/validate_readmes.py` on pull requests and main updates.
 
 O novo QA documental verifica referências internas, correspondência EN/PT-BR, inventário com dez plugins, avisos obrigatórios e diagramas. Seus resultados devem ser confirmados no workflow da versão.
 
