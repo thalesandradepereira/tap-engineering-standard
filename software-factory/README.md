@@ -20,13 +20,13 @@
 
 ## Overview
 
-TAP Software Factory is a **modular, Git-versioned software engineering ecosystem** centered on \`tap-make-software\`. It joins specialized Agent Skills, optional local MCP servers, a self-hostable Studio prototype, and a protected GitHub CI workflow. It provides a starting point for web applications and engineering workflows, **not a turnkey clone of Emergent**.
+TAP Software Factory is a **modular, Git-versioned software engineering ecosystem** centered on `tap-make-software`. It joins specialized Agent Skills, optional local MCP servers, a self-hostable Studio prototype, and a protected GitHub CI workflow. It provides a starting point for web applications and engineering workflows, **not a turnkey clone of Emergent**.
 
 The recommended primary development device is the **MacBook**. The phone is an occasional access device, never a required build runner. GitHub stores the reviewed source. Floot is a **separately connected hosting provider**; a connection does not import or deploy this Python/FastAPI application automatically.
 
 ## Architecture
 
-\`\`\`mermaid
+```mermaid
 flowchart TD
     A["MacBook — primary development"] --> B["GitHub — canonical reviewed source"]
     B --> C["Protected PR + QA / regression gates"]
@@ -37,7 +37,7 @@ flowchart TD
     B -. "operator-controlled delivery" .-> I["TAP Studio Runtime — FastAPI + SQLite"]
     I --> J["Caddy HTTPS on authorized server — NOT LIVE"]
     D -. "separate connection" .-> K["Floot — no automatic source sync"]
-\`\`\`
+```
 
 ### Implementation inventory
 
@@ -56,7 +56,7 @@ The [machine-readable inventory](plugin-inventory.json) is the version source of
 | [TAP Sandbox Executor](plugins/tap-sandbox-executor/) | 1.0.0 | Opt-in local Docker test profile, not general cloud compute |
 | [TAP Cloud Infrastructure](plugins/tap-cloud-infrastructure/) | 1.0.0 | Infrastructure blueprints, NOT provisioned resources |
 
-**Graphify:** the original upstream project is [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify). The TAP integration declares the official \`https://api.graphify.com/mcp\` endpoint in [its MCP config](plugins/tap-graphify/mcp.json). OAuth and repository indexing require separate authorization. No upstream Graphify binary, hook or indexing credential is included.
+**Graphify:** the original upstream project is [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify). The TAP integration declares the official `https://api.graphify.com/mcp` endpoint in [its MCP config](plugins/tap-graphify/mcp.json). OAuth and repository indexing require separate authorization. No upstream Graphify binary, hook or indexing credential is included.
 
 ## Current functionality and boundaries
 
@@ -76,7 +76,7 @@ The [machine-readable inventory](plugin-inventory.json) is the version source of
 
 Use the repository as your source of truth. This local setup does **not** create a public site.
 
-\`\`\`bash
+```bash
 git clone https://github.com/thalesandradepereira/tap-engineering-standard.git
 cd tap-engineering-standard/software-factory/plugins/tap-studio-runtime
 python3 -m venv .venv
@@ -86,9 +86,9 @@ export TAP_STUDIO_DB_PATH="$PWD/studio.db"
 export TAP_STUDIO_ADMIN_USER="admin"
 # Load TAP_STUDIO_ADMIN_PASSWORD privately from your password manager.
 python server/studio.py
-\`\`\`
+```
 
-Open \`http://127.0.0.1:8080/\` **only on your trusted machine**. Use a strong password; never paste it into GitHub, a prompt or a README. The exact [Studio installation guide](plugins/tap-studio-runtime/README.md) documents env settings and the optional model endpoint.
+Open `http://127.0.0.1:8080/` **only on your trusted machine**. Use a strong password; never paste it into GitHub, a prompt or a README. The exact [Studio installation guide](plugins/tap-studio-runtime/README.md) documents env settings and the optional model endpoint.
 
 ### Self-hosted full stack
 
@@ -100,16 +100,16 @@ The last verified protected GitHub workflow completed **174 tests**: 119 TAP Eng
 
 Run the portable validators from the **repository root**:
 
-\`\`\`bash
+```bash
 python3 scripts/validate_skill.py
 python3 software-factory/scripts/validate_packages.py
 python3 software-factory/scripts/validate_readmes.py
 python3 -m unittest discover -s software-factory/plugins/tap-code-workspace/tests -v
 python3 -m unittest discover -s software-factory/plugins/tap-sandbox-executor/tests -v
 python3 -m unittest discover -s software-factory/plugins/tap-make-software/tests -v
-\`\`\`
+```
 
-For the Studio suite, install its [requirements](plugins/tap-studio-runtime/requirements.txt) in an isolated virtual environment and run \`python -m unittest discover -s software-factory/plugins/tap-studio-runtime/tests -v\`. For detailed evidence and exclusions, see [QA STATUS](QA_STATUS.md).
+For the Studio suite, install its [requirements](plugins/tap-studio-runtime/requirements.txt) in an isolated virtual environment and run `python -m unittest discover -s software-factory/plugins/tap-studio-runtime/tests -v`. For detailed evidence and exclusions, see [QA STATUS](QA_STATUS.md).
 
 ## Security, privacy and governance
 

@@ -234,3 +234,8 @@ Projeto independente, sem endosso ou vínculo oficial com OpenAI, Anthropic, Git
 **Construa apenas o necessário. Verifique o que importa. Proteja a confiança do usuário.**
 
 </div>
+
+
+## TAP Software Factory — Ecossistema full-stack
+
+Este repositório também contém a [TAP Software Factory](software-factory/README.pt-BR.md): TAP Make Software **v4.1.0** com 11 Skills integradas, dez pacotes de plugins incluindo Graphify e Studio Runtime para hospedagem própria. Consulte o [guia em inglês](software-factory/README.md), o [QA](software-factory/QA_STATUS.md) e as [notas da versão](software-factory/RELEASE_NOTES_v4.1.0.md). Esse código **não está automaticamente publicado em produção**.
