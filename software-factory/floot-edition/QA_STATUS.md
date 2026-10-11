@@ -28,3 +28,9 @@ This is **not** evidence that production logins, account recovery emails, or aut
 Keep the previously released Python/FastAPI and Graphify source untouched. No credentials or preview access tokens were committed.
 
 **Made by TAP.**
+
+## Public signup / Cadastro público
+
+The seeded Floot auth flow currently exposes self-registration for end users; **a working owner login and a verified invitation/restriction policy are still required before treating this as a private-only workspace.** Database ownership checks protect project rows, but public registration can still create accounts and consume hosted resources. Rate-limiting and a post-bootstrap invite-only policy must be reviewed with the owner before opening the Studio for wider use.
+
+O fluxo de autenticação gerado pelo Floot permite cadastro de novos usuários. **Antes de considerar o ambiente exclusivo do proprietário, é necessário validar o primeiro login e definir uma política de convites/restrição de cadastro.** O isolamento de projetos não elimina o risco de cadastros automatizados consumirem recursos.
