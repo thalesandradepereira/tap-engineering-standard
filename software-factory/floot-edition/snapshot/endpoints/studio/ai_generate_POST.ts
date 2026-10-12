@@ -60,7 +60,7 @@ export async function handle(request:Request){
   if(error instanceof FlootAiOutOfCreditsError)return encode({error:"Créditos Floot esgotados.",code:"OUT_OF_CREDITS"},503);
   if(error instanceof FlootAiRateLimitError)return encode({error:"O serviço de IA atingiu o limite por minuto. Aguarde antes de tentar novamente.",code:"AI_RATE_LIMIT"},429);
   if(error instanceof AiOutputIssue)return encode({error:error.message+" A tentativa pode ter consumido créditos Floot.",code:error.code,creditsConsumed:credits},422);
-  if(error instanceof Error && /inválid|excedeu|vazio|permitid|JSON/i.test(error.message))return encode({error:error.message,code:"INVALID_AI_OUTPUT"},422);
-  return encode({error:"Não foi possível concluir a geração. Verifique o histórico de uso e tente mais tarde.",code:"AI_PROVIDER_ERROR"},502);
+  if(error instanceof Error && /inválid|excedeu|vazio|permitid|JSON/i.test(error.message))return encode({error:error.message,code:"INVALID_AI_OUTPUT",creditsConsumed:credits},422);
+  return encode({error:"Não foi possível concluir a geração. Verifique o histórico de uso e tente mais tarde.",code:"AI_PROVIDER_ERROR",creditsConsumed:credits},502);
  }
 }
