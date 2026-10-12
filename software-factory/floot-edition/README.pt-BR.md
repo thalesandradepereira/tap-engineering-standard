@@ -1,4 +1,4 @@
-# TAP Software Factory Studio — Edição Floot v0.2.0
+# TAP Software Factory Studio — Edição Floot v0.2.1
 
 [**Abrir TAP Studio hospedado**](https://tap-software-factory.floot.app) · [English](README.md) · [Release do núcleo no GitHub](https://github.com/thalesandradepereira/tap-engineering-standard/releases/tag/software-factory-v4.1.0) · [Relatório QA](QA_STATUS.md)
 
@@ -44,7 +44,7 @@ Para futuras atualizações: modificar o Floot, testar, republicar e atualizar e
 
 **Made by TAP.**
 
-## TAP AI Builder — versão beta v0.2.0
+## TAP AI Builder — versão beta v0.2.1
 
 A edição Floot oferece o painel **"Crie por descrição"**. A geração utiliza **GPT-6 Luna integrado ao Floot** e **consome créditos Floot quando executada**. Cada solicitação exige marcar o aceite e confirmar novamente antes de chamar a IA. O servidor limita o uso a **3 tentativas por usuário autorizado por dia UTC**, verificando o limite de modo atômico. Apenas contas habilitadas na lista de permissões podem gerar conteúdo.
 
@@ -53,3 +53,7 @@ O HTML/CSS/JavaScript retornado passa por validações e aparece em **pré-visua
 **Segurança:** cadastro público bloqueado no servidor (HTTP 403), logins anteriores preservados; endpoint de IA sem sessão respondeu HTTP 401. TypeScript aprovado, **4 suítes Jasmine** passaram. Teste E2E autenticado usando o modelo real, pentest independente e sincronização automática GitHub→Floot continuam pendentes.
 
 [Relatório QA](QA_STATUS.md) · [SQL de referência](schema.sql) · [Snapshot de 28 arquivos](snapshot-manifest.json)
+
+## Hotfix v0.2.1 — correção de JSON (12/10/2026)
+
+A aplicação Floot foi republicada solicitando JSON Schema estrito ao GPT-6 Luna, extraindo apenas objetos JSON completos, detectando respostas interrompidas e informando créditos cobrados em caso de erro. O teto de saída foi aumentado para **6.000 tokens**, podendo elevar o custo de uma geração longa. As quatro suítes Jasmine e o TypeScript passaram; testes HTTP em produção confirmaram login, bloqueio de chamadas anônimas e cadastro fechado. O projeto original foi preservado. **Nenhuma chamada paga foi realizada no QA do hotfix**; a primeira geração real bem-sucedida ainda precisa ser testada com autorização individual. A tentativa anterior falhou e consumiu **2 créditos Floot**. Veja [relatório do incidente](PATCH_JSON_PENDING.md).

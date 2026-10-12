@@ -2,7 +2,7 @@ import { flootAi, FlootAiOutOfCreditsError, FlootAiRateLimitError } from "@floot
 import { db } from "../../helpers/db";
 import { sql } from "kysely";
 import { getServerUserSession } from "../../helpers/getServerUserSession";
-import { makeAiInstructions, parseGeneratedPage, validateGenerationRequest } from "../../helpers/studioAiGeneration";
+import { makeAiInstructions, parseGeneratedPage, validateGenerationRequest, extractGeneratedText, AiOutputIssue } from "../../helpers/studioAiGeneration";
 import { schema } from "./ai_generate_POST.schema";
 import superjson from "superjson";
 
@@ -42,10 +42,16 @@ export async function handle(request:Request){
     instructions:makeAiInstructions(project.name),
     input:input.prompt,
     reasoning:{effort:"medium"},
-    max_output_tokens:3200,
+    text:{format:{
+      type:"json_schema",name:"tap_site_files_v1",strict:true,
+      schema:{type:"object",additionalProperties:false,required:["html","css","javascript"],
+        properties:{html:{type:"string"},css:{type:"string"},javascript:{type:"string"}}}
+    }},
+    // No automatic retry: each user-approved call can use Floot credits.
+    max_output_tokens:6000,
   });
   credits=Number(response.flootCredits?.consumed??0);
-  const text=response.output_text??response.output?.filter((x:any)=>x.type==="message").flatMap((x:any)=>x.content??[]).filter((x:any)=>x.type==="output_text").map((x:any)=>x.text).join("\n")??"";
+  const text=extractGeneratedText(response);
   const candidate=parseGeneratedPage(text);
   await db.updateTable("studioAiRequests").set({status:"completed",creditsConsumed:credits}).where("id","=",allowance.id).execute();
   return encode({candidate,model:"gpt-6-luna",creditsConsumed:credits,remainingToday:allowance.remaining});
@@ -53,7 +59,8 @@ export async function handle(request:Request){
   try{await db.updateTable("studioAiRequests").set({status:"failed",creditsConsumed:credits}).where("id","=",allowance.id).execute();}catch{}
   if(error instanceof FlootAiOutOfCreditsError)return encode({error:"Créditos Floot esgotados.",code:"OUT_OF_CREDITS"},503);
   if(error instanceof FlootAiRateLimitError)return encode({error:"O serviço de IA atingiu o limite por minuto. Aguarde antes de tentar novamente.",code:"AI_RATE_LIMIT"},429);
-  if(error instanceof Error && /inválid|excedeu|vazio|permitid|JSON/i.test(error.message))return encode({error:error.message,code:"INVALID_AI_OUTPUT"},422);
-  return encode({error:"Não foi possível concluir a geração. Verifique o histórico de uso e tente mais tarde.",code:"AI_PROVIDER_ERROR"},502);
+  if(error instanceof AiOutputIssue)return encode({error:error.message+" A tentativa pode ter consumido créditos Floot.",code:error.code,creditsConsumed:credits},422);
+  if(error instanceof Error && /inválid|excedeu|vazio|permitid|JSON/i.test(error.message))return encode({error:error.message,code:"INVALID_AI_OUTPUT",creditsConsumed:credits},422);
+  return encode({error:"Não foi possível concluir a geração. Verifique o histórico de uso e tente mais tarde.",code:"AI_PROVIDER_ERROR",creditsConsumed:credits},502);
  }
 }
