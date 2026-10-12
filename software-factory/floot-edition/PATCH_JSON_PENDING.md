@@ -1,21 +1,28 @@
-# TAP Floot AI Builder — Correção JSON preparada (não publicada)
+# TAP Floot AI Builder — Incidente JSON e hotfix v0.2.1
 
-**Data:** 11/10/2026 · **Status:** proposta em PR draft, ainda NÃO aplicada ao Floot. Código fonte publicado no GitHub NÃO atualiza o Floot automaticamente.
+**Estado: hotfix PUBLICADO no Floot em 12/10/2026; teste de geração paga ainda pendente.**
 
-## Diagnóstico e impacto
-Uma geração autorizada para o projeto TAP Teste 001 falhou com a mensagem de JSON inválido. O banco registrou uma tentativa com **status failed e 2.0000 créditos Floot consumidos**, em 2026-10-11 19:40:36 UTC. O código do usuário não foi substituído. A resposta bruta do provedor não está disponível; por isso, **a causa exata não foi comprovada** (pode incluir saída truncada, código cercado por Markdown ou texto adicional).
+## Ocorrência original
 
-A conta Floot esgotou as 100 ações de desenvolvimento diárias. Segundo a plataforma, as ações de edição/QA/publicação serão liberadas novamente em **12/10/2026 14:00 UTC (11:00 Brasília)**. Não usar outro projeto/conta para contornar essa restrição.
+Em 11/10/2026 às 19:40:36 UTC, a primeira geração real de IA retornou mensagem de JSON inválido e consumiu **2,0000 créditos Floot**. O registro no banco ficou em estado \`failed\`. A resposta bruta do modelo não estava disponível; os logs confirmam uma requisição com aproximadamente 23 segundos de duração, mas não revelam a forma exata da resposta. Não afirmar uma causa raiz específica.
 
-## Alterações propostas
-- Solicitar formato JSON Schema estrito ao GPT-6 Luna pela API de respostas do Floot, exigindo as chaves html/css/javascript.
-- Aumentar o teto de saída de 3200 para 6000 tokens. **Isso pode aumentar créditos cobrados em uma nova geração autorizada.**
-- Diferenciar resposta com status incompleto, inclusive esgotamento de tokens, de JSON inválido.
-- Extrair somente objeto JSON completo, com tratamento de chaves dentro de strings. Não inventar fechamento de JSON truncado nem fazer retry automático.
-- Exibir créditos contabilizados na mensagem de erro quando informados, mantendo consentimento explícito, limite diário e validações de segurança.
-- Acrescentar testes Jasmine cobrindo prefácio, strings com chaves, truncamento e formatos da resposta.
+## Correção publicada
 
-## Critérios de publicação
-Após o reset Floot: aplicar as cinco alterações na versão real do projeto Floot, executar typecheck e Jasmine completos, verificar endpoint sem login (401) e cadastro bloqueado (403), criar checkpoint e publicar somente web. **Não chamar o modelo pago no QA automatizado.** Confirmar com o usuário uma única geração real controlada (aceite por chamada); registrar o custo e o resultado. Só depois fechar a PR e criar a tag Floot v0.2.1.
+O backend passou a solicitar **JSON Schema estrito**, com \`html\`, \`css\` e \`javascript\`. O parser reconhece JSON completo mesmo com texto de apresentação ou blocos Markdown; detecta respostas \`incomplete\` e **nunca conserta artificialmente JSON truncado**. O limite máximo de saída subiu de **3.200 para 6.000 tokens**, podendo aumentar o consumo de créditos de uma geração longa. Falhas agora informam créditos contabilizados quando conhecidos.
+
+O código preserva login obrigatório, lista de contas habilitadas, três solicitações/dia UTC, confirmação de cobrança a cada geração e as etapas separadas **Prévia → Aplicar → Salvar**. Nenhuma chamada paga é repetida automaticamente.
+
+## Evidência de QA
+
+- Quatro suítes Jasmine aprovadas, inclusive testes adicionais de conteúdo com prefixo, chaves em strings, resposta incompleta e diferentes formatos de saída.
+- TypeScript limpo e checkpoint Floot \`bb2c19e7-b696-4a0e-82bc-8537e944c12b\`.
+- Floot confirmou o deploy no domínio \`https://tap-software-factory.floot.app\`.
+- Pós-deploy: \`/\` e \`/login\` responderam 200, solicitação de IA anônima 401 e cadastro público 403.
+- Consulta posterior: o projeto \`TAP Teste 001\` continua intacto, **zero solicitações ao modelo no dia 12/10 durante o QA**, permanecendo os 2 créditos históricos do incidente.
+- **A qualidade de uma geração real concluída e a cobrança correspondente ainda não foram verificadas.** Para esse teste, cada chamada deverá ser aprovada explicitamente no painel do usuário.
+
+## Limitações
+
+O código do Floot e o snapshot no GitHub não possuem sincronização automática; o snapshot não exporta os serviços internos do Floot. QA verde não equivale a certificação de segurança completa nem comprova que todo prompt produzirá JSON utilizável.
 
 **Made by TAP**

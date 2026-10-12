@@ -133,3 +133,7 @@ The [Floot-native TAP Studio](floot-edition/README.md) is live at [tap-software-
 ### TAP Floot AI Builder v0.2.0
 
 The [hosted Floot Studio](floot-edition/README.md) now provides model-assisted, credits-confirmed single-page generation, with a 3/day account entitlement and no automatic save. Public sign-up is disabled; billed LLM E2E remains to be tested. The original Python/Graphify core is separate.
+
+### Floot JSON hotfix v0.2.1 — deployed
+
+The [Floot Edition](floot-edition/README.md) was republished on 12 October with strict JSON Schema output, handling for incomplete generations and charged-error diagnostics. Production smoke, TypeScript and Jasmine checks passed; no new paid model calls were made during QA. See [hotfix report](floot-edition/PATCH_JSON_PENDING.md).

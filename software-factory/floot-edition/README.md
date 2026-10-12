@@ -1,4 +1,4 @@
-# TAP Software Factory Studio — Floot Edition v0.2.0
+# TAP Software Factory Studio — Floot Edition v0.2.1
 
 [**Open hosted web Studio**](https://tap-software-factory.floot.app) · [Português](README.pt-BR.md) · [Core GitHub release](https://github.com/thalesandradepereira/tap-engineering-standard/releases/tag/software-factory-v4.1.0) · [QA](QA_STATUS.md)
 
@@ -44,7 +44,7 @@ For next changes, edit the Floot app using authorized Floot tools, run Floot typ
 
 **Made by TAP.**
 
-## AI Builder beta — v0.2.0
+## AI Builder beta — v0.2.1
 
 The web Studio now includes a **"Crie por descrição"** prompt panel. It uses Floot's integrated **GPT-6 Luna** service; calls debit the owner's Floot credits and therefore require **an explicit checkbox and confirmation on every Generate action**. A maximum of **3 attempts per authorized user per UTC day** is enforced in the server database with an atomic lock. AI generation is restricted by a separate whitelist: anonymous visitors and newly registered accounts cannot spend credits.
 
@@ -53,3 +53,7 @@ Generated HTML, CSS and JavaScript are **validated** and shown in a sandboxed pr
 **Security:** Public registration has been disabled server-side (HTTP 403) for this private beta. Existing registered accounts continue to work. A production unauthorized AI request returned HTTP 401; page routes returned 200; TypeScript checked clean and four Jasmine suites passed. No browser-authenticated model E2E, independent penetration test or automated GitHub→Floot deployment has been verified.
 
 [QA record](QA_STATUS.md) · [Reference SQL](schema.sql) · [28-file source snapshot](snapshot-manifest.json)
+
+## Hotfix v0.2.1 — AI JSON response recovery (12 October 2026)
+
+The Floot web application was redeployed with strict JSON schema output requested from GPT-6 Luna, more reliable extraction of complete JSON, explicit incomplete-response handling, and failure credit disclosure. Model output budget increased to 6,000 tokens, which can raise credit usage. Four Jasmine spec suites and TypeScript checks passed, and production HTTP smoke checks succeeded. The original project was preserved. **No new billed model generation was run in the hotfix QA**, so a successful end-to-end AI result still requires one in-app authorized attempt. The previous failed attempt cost **2 Floot credits**. See [incident report](PATCH_JSON_PENDING.md).

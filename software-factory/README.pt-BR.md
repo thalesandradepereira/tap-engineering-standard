@@ -133,3 +133,7 @@ O [TAP Studio nativo do Floot](floot-edition/README.pt-BR.md) está publicado em
 ### TAP Floot AI Builder v0.2.0
 
 O [Studio hospedado no Floot](floot-edition/README.pt-BR.md) agora permite gerar páginas por IA, com aceite de créditos por chamada, limite de 3 tentativas por dia e revisão antes de salvar. Cadastro público bloqueado; teste com modelo pago ainda pendente. O núcleo Python e Graphify permanecem independentes.
+
+### Hotfix Floot AI Builder v0.2.1 — publicado
+
+A [edição web Floot](floot-edition/README.pt-BR.md) recebeu em 12/10 a correção de JSON estruturado, tratamento de resposta incompleta e indicação de créditos em falhas. QA do TypeScript, Jasmine e verificações HTTP foram aprovados; nenhuma chamada paga adicional foi feita. Veja o [relatório](floot-edition/PATCH_JSON_PENDING.md).

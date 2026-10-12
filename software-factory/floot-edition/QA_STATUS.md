@@ -1,6 +1,6 @@
-# TAP Studio Floot Edition v0.2.0 — QA / Garantia de qualidade
+# TAP Studio Floot Edition v0.2.1 — QA / Garantia de qualidade
 
-**Release:** 2026-10-11 · **Website:** https://tap-software-factory.floot.app
+**Release:** 2026-10-12 · **Website:** https://tap-software-factory.floot.app
 
 | Gate / Teste | Result / Resultado |
 |---|---|
@@ -12,7 +12,7 @@
 | Generation payload/validation rules | **PASS** unit tests, model mocked |
 | AI access entitlements | **PASS** — one account enabled |
 | Existing TAP Teste 001 persisted | **PASS**, current source preserved |
-| AI calls billed during QA | **0** (no real model request) |
+| New model calls billed during hotfix QA | **0** (no paid generation) |
 | Native builds | **0** |
 | True GPT-6 Luna model/credit E2E | **NOT RUN** (requires explicit consent and billing) |
 | Authenticated browser interaction E2E | **NOT RUN** |
@@ -23,6 +23,6 @@
 
 **Made by TAP.**
 
-## Incidente real de IA — 11/10/2026
+## Hotfix 12/10/2026 — v0.2.1
 
-Uma tentativa de geração retornou erro de JSON inválido e consumiu **2.0000 créditos Floot** (status `failed` na tabela `studio_ai_requests`). A resposta original do modelo não foi retida: causa exata ainda não comprovada. A correção está em um PR draft, **não publicada**, pois o Floot atingiu o limite diário de build (reinício 12/10/2026 14:00 UTC). Consulte [plano de correção](PATCH_JSON_PENDING.md).
+**Floot production deploy completed**, 4 Jasmine suites passed and TypeScript clean. Production HTTP smoke confirmed 200 (site/login), 401 (anonymous AI), 403 (public signup). The original project remains intact; **0 new billed generations during QA**. The initial failed request had already consumed 2 Floot credits on 11/10. The exact model response causing the earlier failure was not logged, and a successful real paid generation is **not yet certified**. See [incident and hotfix record](PATCH_JSON_PENDING.md).
